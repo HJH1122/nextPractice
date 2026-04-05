@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import styles from "./page.module.scss";
@@ -12,6 +13,7 @@ interface Message {
 }
 
 function Home() {
+  const router = useRouter();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -35,7 +37,7 @@ function Home() {
         <div className={styles.container__onBoarding}>
           <span className={styles.container__onBoarding__title}>채팅</span>
           <Button
-            onClick={() => setIsChatOpen(true)}
+            onClick={() => router.push("/chat")}
             variant={"outline"}
             className="w-full bg-transparent text-orange-500 border-orange-400 hover:bg-orange-50 hover:text-orange-500"
           >
