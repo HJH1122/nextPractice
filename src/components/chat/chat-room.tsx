@@ -9,14 +9,43 @@ import { MessageInput } from "./message-input";
 export const ChatRoom = () => {
   const { socket, isConnected } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
   // 실제 앱에서는 인증 시스템의 유저 ID를 사용합니다.
   const currentUserId = "user-123";
+  const roomId = "general-room"; // 기본 방 ID
+
+  // 이전 메시지 내역 불러오기
+  useEffect(() => {
+    const fetchMessages = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/messages?roomId=${roomId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setMessages(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch messages:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMessages();
+  }, [roomId]);
 
   useEffect(() => {
     if (!socket) return;
 
     socket.on("receive-message", (message: Message) => {
-      setMessages((prev) => [...prev, message]);
+      // 본인이 보낸 메시지는 중복 방지를 위해 필터링하거나, 서버에서 broadcast 할 때 처리 방식에 맞춤
+      // 현재 서버(io.ts)는 받은 메시지를 전체에 emit하므로 중복 체크가 필요할 수 있음
+      setMessages((prev) => {
+        const messageExists = prev.find((m) => m.id === message.id);
+        if (messageExists) return prev;
+        return [...prev, message];
+      });
     });
 
     return () => {
@@ -32,12 +61,16 @@ export const ChatRoom = () => {
         id: crypto.randomUUID(),
         content,
         senderId: currentUserId,
+        roomId: roomId,
         timestamp: new Date().toISOString(),
       };
 
+      // 낙관적 업데이트 (선택 사항)
+      // setMessages((prev) => [...prev, newMessage]);
+
       socket.emit("send-message", newMessage);
     },
-    [socket, isConnected, currentUserId]
+    [socket, isConnected, currentUserId, roomId]
   );
 
   return (
@@ -56,7 +89,13 @@ export const ChatRoom = () => {
         </div>
       </div>
       
-      <MessageList messages={messages} currentUserId={currentUserId} />
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">
+          메시지를 불러오는 중...
+        </div>
+      ) : (
+        <MessageList messages={messages} currentUserId={currentUserId} />
+      )}
       
       <MessageInput onSendMessage={onSendMessage} disabled={!isConnected} />
     </div>

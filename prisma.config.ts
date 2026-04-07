@@ -9,6 +9,9 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // PrismaClient 생성 시 사용할 URL
+    url: process.env.DATABASE_URL,
   },
 });
+
+
