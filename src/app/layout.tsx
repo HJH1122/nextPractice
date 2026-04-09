@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/styles/globals.css";
-import SideNavigation from "@/components/common/navigation/SideNavigation";
+
 import { SocketProvider } from "@/components/providers/socket-provider";
 
 const geistSans = Geist({
@@ -31,7 +31,7 @@ export default function RootLayout({
     >
       <body>
         <SocketProvider>
-          <SideNavigation />
+          
           {children}
         </SocketProvider>
       </body>
