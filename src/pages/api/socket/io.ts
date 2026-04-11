@@ -70,6 +70,17 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
         }
       });
 
+      // 타이핑 시작 이벤트 처리
+      socket.on("typing", ({ roomId, username }) => {
+        // 본인을 제외한 다른 클라이언트들에게 전송
+        socket.broadcast.emit("user-typing", { roomId, username });
+      });
+
+      // 타이핑 중단 이벤트 처리
+      socket.on("stop-typing", ({ roomId, username }) => {
+        socket.broadcast.emit("user-stop-typing", { roomId, username });
+      });
+
       socket.on("disconnect", () => {
         console.log("[SOCKET_IO] Client disconnected");
       });

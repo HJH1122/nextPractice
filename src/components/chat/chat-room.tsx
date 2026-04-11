@@ -14,6 +14,7 @@ export const ChatRoom = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [username, setUsername] = useState("");
   const [isJoined, setIsJoined] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   
   // 입력한 username을 ID로 사용합니다 (테스트용)
   const currentUserId = username;
@@ -53,10 +54,29 @@ export const ChatRoom = () => {
       });
     });
 
+    // 다른 사용자가 입력 중일 때
+    socket.on("user-typing", ({ roomId: incomingRoomId, username: typingUser }) => {
+      if (incomingRoomId === roomId && typingUser !== username) {
+        setTypingUsers((prev) => {
+          if (prev.includes(typingUser)) return prev;
+          return [...prev, typingUser];
+        });
+      }
+    });
+
+    // 다른 사용자가 입력을 멈췄을 때
+    socket.on("user-stop-typing", ({ roomId: incomingRoomId, username: typingUser }) => {
+      if (incomingRoomId === roomId) {
+        setTypingUsers((prev) => prev.filter((u) => u !== typingUser));
+      }
+    });
+
     return () => {
       socket.off("receive-message");
+      socket.off("user-typing");
+      socket.off("user-stop-typing");
     };
-  }, [socket, isJoined]);
+  }, [socket, isJoined, roomId, username]);
 
   const onSendMessage = useCallback(
     (content: string) => {
@@ -78,6 +98,18 @@ export const ChatRoom = () => {
     },
     [socket, isConnected, currentUserId, roomId]
   );
+
+  const onTyping = useCallback(() => {
+    if (socket && isConnected) {
+      socket.emit("typing", { roomId, username });
+    }
+  }, [socket, isConnected, roomId, username]);
+
+  const onStopTyping = useCallback(() => {
+    if (socket && isConnected) {
+      socket.emit("stop-typing", { roomId, username });
+    }
+  }, [socket, isConnected, roomId, username]);
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,7 +142,7 @@ export const ChatRoom = () => {
   }
 
   return (
-    <div className="flex flex-col h-full border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 shadow-sm overflow-hidden">
+    <div className="flex flex-col h-full border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 shadow-sm overflow-hidden relative">
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
         <div>
           <h2 className="font-semibold text-sm">실시간 채팅</h2>
@@ -136,7 +168,19 @@ export const ChatRoom = () => {
         <MessageList messages={messages} currentUserId={currentUserId} />
       )}
       
-      <MessageInput onSendMessage={onSendMessage} disabled={!isConnected} />
+      {/* 입력 중 표시 */}
+      {typingUsers.length > 0 && (
+        <div className="px-4 py-1 text-xs text-zinc-500 italic animate-pulse bg-zinc-50/50 dark:bg-zinc-900/50">
+          {typingUsers.join(", ")}님이 입력 중입니다...
+        </div>
+      )}
+      
+      <MessageInput 
+        onSendMessage={onSendMessage} 
+        onTyping={onTyping}
+        onStopTyping={onStopTyping}
+        disabled={!isConnected} 
+      />
     </div>
   );
 };
