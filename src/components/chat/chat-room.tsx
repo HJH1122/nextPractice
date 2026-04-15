@@ -7,6 +7,7 @@ import { MessageList } from "./message-list";
 import { MessageInput } from "./message-input";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Users } from "lucide-react";
 
 export const ChatRoom = () => {
   const { socket, isConnected } = useSocket();
@@ -17,6 +18,8 @@ export const ChatRoom = () => {
   const [username, setUsername] = useState("");
   const [isJoined, setIsJoined] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   
   // 입력한 username을 ID로 사용합니다 (테스트용)
   const currentUserId = username;
@@ -92,10 +95,19 @@ export const ChatRoom = () => {
       }
     });
 
+    socket.on("online-users", (users: string[]) => {
+      console.log("[CLIENT] Online users updated:", users);
+      setOnlineUsers(users);
+    });
+
+    // 방에 입장했음을 알림
+    socket.emit("join", username);
+
     return () => {
       socket.off("receive-message");
       socket.off("user-typing");
       socket.off("user-stop-typing");
+      socket.off("online-users");
     };
   }, [socket, isJoined, roomId, username]);
 
@@ -167,9 +179,20 @@ export const ChatRoom = () => {
   return (
     <div className="flex flex-col h-full border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 shadow-sm overflow-hidden relative">
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-        <div>
-          <h2 className="font-semibold text-sm">실시간 채팅</h2>
-          <p className="text-xs text-blue-600 font-medium">내 닉네임: {username}</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="font-semibold text-sm">실시간 채팅</h2>
+            <p className="text-xs text-blue-600 font-medium">내 닉네임: {username}</p>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex items-center gap-2 text-xs"
+            onClick={() => setShowOnlineUsers(!showOnlineUsers)}
+          >
+            <Users className="w-4 h-4" />
+            접속 중인 사람 보기 ({onlineUsers.length})
+          </Button>
         </div>
         <div className="flex items-center gap-2">
           <div
@@ -183,6 +206,35 @@ export const ChatRoom = () => {
         </div>
       </div>
       
+      {/* 접속 중인 사용자 목록 오버레이 */}
+      {showOnlineUsers && (
+        <div className="absolute top-[73px] left-4 z-50 w-64 max-h-[300px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between px-2 py-1 mb-2 border-b border-zinc-100 dark:border-zinc-800">
+            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">접속 중인 사용자</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowOnlineUsers(false)}>
+              <span className="sr-only">닫기</span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </Button>
+          </div>
+          <div className="space-y-1">
+            {onlineUsers.length === 0 ? (
+              <p className="text-xs text-zinc-500 px-2 py-4 text-center">접속자가 없습니다.</p>
+            ) : (
+              onlineUsers.map((user) => (
+                <div key={user} className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 text-sm">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className={user === username ? "font-bold text-blue-600" : ""}>
+                    {user} {user === username && "(나)"}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">
           메시지를 불러오는 중...

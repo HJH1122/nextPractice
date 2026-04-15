@@ -19,8 +19,21 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
       path: path,
     });
     
+    // 접속 중인 사용자 정보를 저장할 맵 (socket.id -> username)
+    const onlineUsers = new Map<string, string>();
+
     io.on("connection", (socket) => {
       console.log(`[SOCKET_IO] New client connected: ${socket.id}`);
+
+      // 사용자가 채팅방에 입장할 때 호출
+      socket.on("join", (username: string) => {
+        onlineUsers.set(socket.id, username);
+        console.log(`[SOCKET_IO] User joined: ${username} (${socket.id})`);
+        
+        // 전체 클라이언트에게 현재 접속자 목록 전송
+        const userList = Array.from(new Set(onlineUsers.values()));
+        io.emit("online-users", userList);
+      });
 
       socket.on("send-message", async (message: Message) => {
         console.log("[SOCKET_IO] Received message event:", message.content);
@@ -81,7 +94,16 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
       });
 
       socket.on("disconnect", () => {
-        console.log("[SOCKET_IO] Client disconnected");
+        console.log(`[SOCKET_IO] Client disconnected: ${socket.id}`);
+        const username = onlineUsers.get(socket.id);
+        if (username) {
+          onlineUsers.delete(socket.id);
+          console.log(`[SOCKET_IO] User left: ${username}`);
+          
+          // 업데이트된 접속자 목록 전송
+          const userList = Array.from(new Set(onlineUsers.values()));
+          io.emit("online-users", userList);
+        }
       });
     });
 
