@@ -80,7 +80,8 @@ export const ChatRoom = () => {
     });
 
     // ... (typing indicator 로직 생략하지 않고 유지)
-    socket.on("user-typing", ({ roomId: incomingRoomId, username: typingUser }) => {
+    socket.on("user-typing", (data: { roomId: string; username: string }) => {
+      const { roomId: incomingRoomId, username: typingUser } = data;
       if (incomingRoomId === roomId && typingUser !== username) {
         setTypingUsers((prev) => {
           if (prev.includes(typingUser)) return prev;
@@ -89,7 +90,8 @@ export const ChatRoom = () => {
       }
     });
 
-    socket.on("user-stop-typing", ({ roomId: incomingRoomId, username: typingUser }) => {
+    socket.on("user-stop-typing", (data: { roomId: string; username: string }) => {
+      const { roomId: incomingRoomId, username: typingUser } = data;
       if (incomingRoomId === roomId) {
         setTypingUsers((prev) => prev.filter((u) => u !== typingUser));
       }
@@ -121,7 +123,7 @@ export const ChatRoom = () => {
       }
 
       const newMessage: Message = {
-        id: crypto.randomUUID(),
+        id: window.crypto.randomUUID(),
         content,
         senderId: currentUserId,
         roomId: roomId,

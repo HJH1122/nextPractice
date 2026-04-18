@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const roomId = searchParams.get("roomId");
@@ -13,51 +13,35 @@ export async function GET(req: Request) {
 
     const MESSAGES_BATCH = 15;
 
-    let messages = [];
+    // Prisma 쿼리 공통 옵션
+    const queryOptions = {
+      take: MESSAGES_BATCH,
+      where: {
+        roomId,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            imageUrl: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc" as const, // 최신순으로 가져와야 '이전' 데이터를 찾기 쉬움
+      },
+    };
 
-    if (cursor) {
-      // 커서가 있는 경우 (이전 메시지 추가 로드)
-      messages = await db.message.findMany({
-        take: MESSAGES_BATCH,
-        skip: 1,
-        cursor: {
-          id: cursor,
-        },
-        where: {
-          roomId,
-        },
-        include: {
-          user: {
-            select: {
-              name: true,
-              imageUrl: true,
-            },
+    // 커서가 있는 경우 (이전 메시지 추가 로드)
+    const messages = cursor 
+      ? await db.message.findMany({
+          ...queryOptions,
+          skip: 1,
+          cursor: {
+            id: cursor,
           },
-        },
-        orderBy: {
-          createdAt: "desc", // 최신순으로 가져와야 '이전' 데이터를 찾기 쉬움
-        },
-      });
-    } else {
-      // 처음 로드할 때
-      messages = await db.message.findMany({
-        take: MESSAGES_BATCH,
-        where: {
-          roomId,
-        },
-        include: {
-          user: {
-            select: {
-              name: true,
-              imageUrl: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-    }
+        })
+      : await db.message.findMany(queryOptions);
 
     let nextCursor = null;
 
