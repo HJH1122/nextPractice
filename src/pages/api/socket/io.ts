@@ -113,9 +113,18 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
               previewDesc: previewData?.description,
               previewImage: previewData?.image,
               previewUrl: previewData?.url,
+              attachments: message.attachments ? {
+                create: message.attachments.map((attachment) => ({
+                  fileUrl: attachment.fileUrl,
+                  fileName: attachment.fileName,
+                  fileType: attachment.fileType,
+                  fileSize: attachment.fileSize,
+                })),
+              } : undefined,
             },
             include: {
-              user: { select: { name: true, imageUrl: true } }
+              user: { select: { name: true, imageUrl: true } },
+              attachments: true,
             }
           });
 
@@ -127,6 +136,7 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
             timestamp: savedMessage.createdAt.toISOString(),
             type: "USER", // 일반 사용자 메시지 타입 지정
             user: savedMessage.user,
+            attachments: savedMessage.attachments,
             // 클라이언트로 보낼 프리뷰 데이터 포함
             preview: previewData ? {
               title: savedMessage.previewTitle!,

@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
             imageUrl: true,
           },
         },
+        attachments: true,
       },
       orderBy: {
         createdAt: "desc" as const, // 최신순으로 가져와야 '이전' 데이터를 찾기 쉬움
@@ -56,6 +57,7 @@ export async function GET(req: NextRequest) {
       roomId: m.roomId,
       timestamp: m.createdAt.toISOString(),
       user: m.user,
+      attachments: m.attachments,
       preview: m.previewTitle ? {
         title: m.previewTitle,
         description: m.previewDesc || "",

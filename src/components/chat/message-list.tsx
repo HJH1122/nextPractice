@@ -2,7 +2,7 @@
 
 import { Message } from "@/types/socket";
 import { useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileIcon, Download, Image as ImageIcon } from "lucide-react";
 
 interface MessageListProps {
   messages: Message[];
@@ -122,8 +122,63 @@ export const MessageList = ({
                   : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100 rounded-tl-none"
               }`}
             >
-              <p className="text-sm leading-relaxed">{message.content}</p>
+              {message.content && <p className="text-sm leading-relaxed">{message.content}</p>}
               
+              {/* 첨부 파일 렌더링 */}
+              {message.attachments && message.attachments.length > 0 && (
+                <div className={`mt-2 space-y-2 ${message.content ? "pt-2 border-t border-white/10" : ""}`}>
+                  {message.attachments.map((attachment) => {
+                    const isImage = attachment.fileType?.startsWith("image/");
+                    
+                    if (isImage) {
+                      return (
+                        <div key={attachment.id} className="relative group rounded-lg overflow-hidden border border-white/10">
+                          <img 
+                            src={attachment.fileUrl} 
+                            alt={attachment.fileName || "image"} 
+                            className="max-h-60 w-auto object-contain cursor-pointer"
+                            onClick={() => window.open(attachment.fileUrl, "_blank")}
+                          />
+                          <a 
+                            href={attachment.fileUrl} 
+                            download={attachment.fileName}
+                            className="absolute bottom-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Download className="w-3 h-3" />
+                          </a>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <a
+                        key={attachment.id}
+                        href={attachment.fileUrl}
+                        download={attachment.fileName}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                          isMyMessage 
+                            ? "bg-white/10 border-white/20 hover:bg-white/20 text-white" 
+                            : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                        }`}
+                      >
+                        <div className={`p-2 rounded-md ${isMyMessage ? "bg-white/20" : "bg-zinc-100 dark:bg-zinc-800"}`}>
+                          <FileIcon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{attachment.fileName}</p>
+                          <p className={`text-[10px] ${isMyMessage ? "text-blue-100" : "text-zinc-500"}`}>
+                            {attachment.fileSize ? `${(attachment.fileSize / 1024).toFixed(1)} KB` : "파일"}
+                          </p>
+                        </div>
+                        <Download className={`w-4 h-4 ${isMyMessage ? "text-white" : "text-zinc-400"}`} />
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* 링크 프리뷰 카드 추가 */}
               {message.preview && (
                 <a 

@@ -116,7 +116,7 @@ export const ChatRoom = () => {
   // ... (onSendMessage, onTyping, onStopTyping, handleJoin 로직 유지)
 
   const onSendMessage = useCallback(
-    (content: string) => {
+    (content: string, attachments?: Attachment[]) => {
       if (!socket || !isConnected) {
         console.warn("[CLIENT] Socket not connected. Cannot send message.");
         return;
@@ -128,6 +128,7 @@ export const ChatRoom = () => {
         senderId: currentUserId,
         roomId: roomId,
         timestamp: new Date().toISOString(),
+        attachments,
       };
 
       console.log("[CLIENT] Emitting 'send-message' event:", newMessage);
