@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSocket } from "@/components/providers/socket-provider";
 import { Message, Attachment } from "@/types/socket";
 import { MessageList } from "./message-list";
@@ -21,9 +21,62 @@ export const ChatRoom = () => {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   
+  // 파일 업로드 관련 상태 (MessageInput에서 끌어올림)
+  const [isUploading, setIsUploading] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   // 입력한 username을 ID로 사용합니다 (테스트용)
   const currentUserId = username;
   const roomId = "general-room";
+
+  // 파일 업로드 함수 (MessageInput에서 끌어올림)
+  const uploadFiles = async (files: FileList | File[]) => {
+    if (files.length === 0) return;
+
+    const file = files[0];
+    
+    // 파일 크기 제한 (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert("파일 크기는 10MB를 넘을 수 없습니다.");
+      return;
+    }
+
+    setIsUploading(true);
+    
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "업로드 실패");
+      }
+
+      const data = await response.json();
+      
+      const newAttachment: Attachment = {
+        id: Math.random().toString(36).substring(7),
+        fileUrl: data.fileUrl,
+        fileName: data.fileName,
+        fileType: data.fileType,
+        fileSize: data.fileSize,
+      };
+
+      setAttachments((prev) => [...prev, newAttachment]);
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("파일 업로드에 실패했습니다.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   // 이전 메시지 내역 불러오기 (초기 로드)
   useEffect(() => {
@@ -248,6 +301,8 @@ export const ChatRoom = () => {
           currentUserId={currentUserId} 
           loadMore={fetchNextPage}
           shouldLoadMore={!!nextCursor && !isFetchingNextPage}
+          onUploadFiles={uploadFiles}
+          isUploading={isUploading}
         />
       )}
       
@@ -263,6 +318,11 @@ export const ChatRoom = () => {
         onTyping={onTyping}
         onStopTyping={onStopTyping}
         disabled={!isConnected} 
+        attachments={attachments}
+        setAttachments={setAttachments}
+        isUploading={isUploading}
+        uploadFiles={uploadFiles}
+        fileInputRef={fileInputRef}
       />
     </div>
   );

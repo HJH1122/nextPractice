@@ -2,26 +2,59 @@
 
 import { Message } from "@/types/socket";
 import { useEffect, useRef, useState } from "react";
-import { Loader2, FileIcon, Download, Image as ImageIcon } from "lucide-react";
+import { Loader2, FileIcon, Download, Image as ImageIcon, Paperclip } from "lucide-react";
 
 interface MessageListProps {
   messages: Message[];
   currentUserId: string;
   loadMore: () => void;
   shouldLoadMore: boolean;
+  onUploadFiles: (files: FileList | File[]) => Promise<void>;
+  isUploading: boolean;
 }
 
 export const MessageList = ({ 
   messages, 
   currentUserId, 
   loadMore, 
-  shouldLoadMore 
+  shouldLoadMore,
+  onUploadFiles,
+  isUploading
 }: MessageListProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const [prevMessageCount, setPrevMessageCount] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const hasInitialized = useRef(false);
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isUploading) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (isUploading) return;
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      await onUploadFiles(files);
+    }
+  };
 
   // 무한 스크롤 감지 (Intersection Observer)
   useEffect(() => {
@@ -69,9 +102,24 @@ export const MessageList = ({
   return (
     <div 
       ref={scrollRef}
-      className="flex-1 overflow-y-auto p-4 space-y-4"
+      className={`flex-1 overflow-y-auto p-4 space-y-4 relative transition-colors ${
+        isDragging ? "bg-blue-50/50 dark:bg-blue-900/20" : ""
+      }`}
       style={{ overflowAnchor: "none" }} // 수동 제어 모드
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
+      {/* 드래그 앤 드롭 오버레이 */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-lg pointer-events-none m-2">
+          <div className="flex flex-col items-center gap-2 text-blue-600 dark:text-blue-400">
+            <Paperclip className="w-10 h-10 animate-bounce" />
+            <p className="text-base font-semibold">파일을 여기에 놓으세요</p>
+          </div>
+        </div>
+      )}
+
       {/* 상단 감지 포인트 및 로딩 표시 */}
       <div ref={topRef} className="h-1" />
       {shouldLoadMore && (

@@ -11,97 +11,27 @@ interface MessageInputProps {
   onTyping: () => void;
   onStopTyping: () => void;
   disabled?: boolean;
+  attachments: Attachment[];
+  setAttachments: React.Dispatch<React.SetStateAction<Attachment[]>>;
+  isUploading: boolean;
+  uploadFiles: (files: FileList | File[]) => Promise<void>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export const MessageInput = ({ 
   onSendMessage, 
   onTyping,
   onStopTyping,
-  disabled 
+  disabled,
+  attachments,
+  setAttachments,
+  isUploading,
+  uploadFiles,
+  fileInputRef
 }: MessageInputProps) => {
   const [content, setContent] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
-  
-  // 파일 업로드 관련 상태
-  const [isUploading, setIsUploading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!disabled && !isUploading) {
-      setIsDragging(true);
-    }
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const uploadFiles = async (files: FileList | File[]) => {
-    if (files.length === 0) return;
-
-    const file = files[0];
-    
-    // 파일 크기 제한 (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert("파일 크기는 10MB를 넘을 수 없습니다.");
-      return;
-    }
-
-    setIsUploading(true);
-    
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "업로드 실패");
-      }
-
-      const data = await response.json();
-      
-      const newAttachment: Attachment = {
-        id: Math.random().toString(36).substring(7), // 임시 ID
-        fileUrl: data.fileUrl,
-        fileName: data.fileName,
-        fileType: data.fileType,
-        fileSize: data.fileSize,
-      };
-
-      setAttachments((prev) => [...prev, newAttachment]);
-    } catch (error) {
-      console.error("Upload error:", error);
-      alert("파일 업로드에 실패했습니다.");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    if (disabled || isUploading) return;
-
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      await uploadFiles(files);
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setContent(e.target.value);
@@ -164,23 +94,8 @@ export const MessageInput = ({
 
   return (
     <div 
-      className={`flex flex-col border-t border-zinc-200 dark:border-zinc-800 transition-colors relative ${
-        isDragging ? "bg-blue-50/50 dark:bg-blue-900/20" : ""
-      }`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      className="flex flex-col border-t border-zinc-200 dark:border-zinc-800 transition-colors relative"
     >
-      {/* 드래그 앤 드롭 오버레이 */}
-      {isDragging && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-blue-500/10 border-2 border-dashed border-blue-500 rounded-t-lg pointer-events-none">
-          <div className="flex flex-col items-center gap-2 text-blue-600 dark:text-blue-400">
-            <Paperclip className="w-8 h-8 animate-bounce" />
-            <p className="text-sm font-semibold">파일을 여기에 놓으세요</p>
-          </div>
-        </div>
-      )}
-
       {/* 업로드된 파일 미리보기 목록 */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-2 p-3 bg-zinc-50 dark:bg-zinc-900/50">
