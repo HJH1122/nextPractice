@@ -22,6 +22,7 @@ export const ChatRoom = () => {
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [scrollToId, setScrollToId] = useState<string | null>(null);
   
   // 파일 업로드 관련 상태 (MessageInput에서 끌어올림)
   const [isUploading, setIsUploading] = useState(false);
@@ -297,6 +298,15 @@ export const ChatRoom = () => {
         <ChatSearch 
           roomId={roomId} 
           onClose={() => setShowSearch(false)} 
+          onSelectMessage={(id) => {
+            const exists = messages.find(m => m.id === id);
+            if (!exists) {
+              alert("해당 메시지가 현재 목록에 없습니다. 상단으로 스크롤하여 더 많은 메시지를 불러온 후 다시 시도해주세요.");
+              return;
+            }
+            setScrollToId(id);
+            setShowSearch(false);
+          }}
         />
       )}
       
@@ -341,6 +351,8 @@ export const ChatRoom = () => {
           shouldLoadMore={!!nextCursor && !isFetchingNextPage}
           onUploadFiles={uploadFiles}
           isUploading={isUploading}
+          scrollToMessageId={scrollToId}
+          onScrollComplete={() => setScrollToId(null)}
         />
       )}
       

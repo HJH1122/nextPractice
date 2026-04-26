@@ -12,6 +12,8 @@ interface MessageListProps {
   shouldLoadMore: boolean;
   onUploadFiles: (files: FileList | File[]) => Promise<void>;
   isUploading: boolean;
+  scrollToMessageId?: string | null;
+  onScrollComplete?: () => void;
 }
 
 export const MessageList = ({ 
@@ -20,14 +22,39 @@ export const MessageList = ({
   loadMore, 
   shouldLoadMore,
   onUploadFiles,
-  isUploading
+  isUploading,
+  scrollToMessageId,
+  onScrollComplete
 }: MessageListProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const [prevMessageCount, setPrevMessageCount] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const hasInitialized = useRef(false);
+
+  // 특정 메시지로 스크롤 로직
+  useEffect(() => {
+    if (scrollToMessageId) {
+      const element = document.getElementById(`message-${scrollToMessageId}`);
+      if (element) {
+        // 메시지가 로드되어 있다면 스크롤
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightedId(scrollToMessageId);
+        
+        // 스크롤 완료 알림 및 강조 제거 예약
+        if (onScrollComplete) {
+          onScrollComplete();
+        }
+
+        const timer = setTimeout(() => {
+          setHighlightedId(null);
+        }, 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [scrollToMessageId, messages, onScrollComplete]);
 
   // 드래그 앤 드롭 핸들러
   const handleDragOver = (e: React.DragEvent) => {
@@ -137,6 +164,7 @@ export const MessageList = ({
         const isMyMessage = message.senderId === currentUserId;
         const isSystemMessage = message.type === "SYSTEM";
         const isBotMessage = message.type === "BOT";
+        const isHighlighted = highlightedId === message.id;
         // 상단에 메시지가 추가될 때, 기존의 가장 첫 번째였던 메시지에 앵커를 걸어 스크롤 위치를 유지합니다.
         const isAnchor = index === messages.length - prevMessageCount;
 
@@ -144,7 +172,8 @@ export const MessageList = ({
           return (
             <div 
               key={message.id} 
-              className="flex justify-center my-2"
+              id={`message-${message.id}`}
+              className={`flex justify-center my-2 transition-colors duration-500 ${isHighlighted ? "bg-yellow-100/50 dark:bg-yellow-900/30 rounded-lg" : ""}`}
               style={isAnchor ? { overflowAnchor: "auto" } : { overflowAnchor: "none" }}
             >
               <div className="bg-zinc-100 dark:bg-zinc-800/50 rounded-full px-4 py-1">
@@ -159,7 +188,10 @@ export const MessageList = ({
         return (
           <div
             key={message.id}
-            className={`flex flex-col ${isMyMessage ? "items-end" : "items-start"}`}
+            id={`message-${message.id}`}
+            className={`flex flex-col ${isMyMessage ? "items-end" : "items-start"} transition-all duration-500 ${
+              isHighlighted ? "scale-[1.02] bg-yellow-50/50 dark:bg-yellow-900/20 rounded-lg p-2 ring-1 ring-yellow-200 dark:ring-yellow-800" : ""
+            }`}
             style={isAnchor ? { overflowAnchor: "auto" } : { overflowAnchor: "none" }}
           >
             <div className="flex items-center gap-1 mb-1 px-1">

@@ -9,9 +9,10 @@ import { Message } from "@/types/socket";
 interface ChatSearchProps {
   roomId: string;
   onClose: () => void;
+  onSelectMessage: (messageId: string) => void;
 }
 
-export const ChatSearch = ({ roomId, onClose }: ChatSearchProps) => {
+export const ChatSearch = ({ roomId, onClose, onSelectMessage }: ChatSearchProps) => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,6 +90,7 @@ export const ChatSearch = ({ roomId, onClose }: ChatSearchProps) => {
             {results.map((message) => (
               <div
                 key={message.id}
+                onClick={() => onSelectMessage(message.id)}
                 className="p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 cursor-pointer transition-colors group"
               >
                 <div className="flex items-center justify-between mb-1">
