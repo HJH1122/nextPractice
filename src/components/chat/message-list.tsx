@@ -14,6 +14,8 @@ interface MessageListProps {
   isUploading: boolean;
   scrollToMessageId?: string | null;
   onScrollComplete?: () => void;
+  searchResults?: Message[];
+  searchIndex?: number;
 }
 
 export const MessageList = ({ 
@@ -24,7 +26,9 @@ export const MessageList = ({
   onUploadFiles,
   isUploading,
   scrollToMessageId,
-  onScrollComplete
+  onScrollComplete,
+  searchResults = [],
+  searchIndex = -1
 }: MessageListProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -43,18 +47,31 @@ export const MessageList = ({
         element.scrollIntoView({ behavior: "smooth", block: "center" });
         setHighlightedId(scrollToMessageId);
         
-        // 스크롤 완료 알림 및 강조 제거 예약
+        // 스크롤 완료 알림
         if (onScrollComplete) {
           onScrollComplete();
         }
 
-        const timer = setTimeout(() => {
-          setHighlightedId(null);
-        }, 3000);
-        return () => clearTimeout(timer);
+        // 강조는 검색 결과가 아닐 때만 자동으로 제거 (검색 결과는 계속 강조 유지)
+        const isSearchResult = searchResults.some(m => m.id === scrollToMessageId);
+        if (!isSearchResult) {
+          const timer = setTimeout(() => {
+            setHighlightedId(null);
+          }, 3000);
+          return () => clearTimeout(timer);
+        }
       }
     }
-  }, [scrollToMessageId, messages, onScrollComplete]);
+  }, [scrollToMessageId, messages, onScrollComplete, searchResults]);
+
+  // 검색 결과 변경 시 강조 업데이트
+  useEffect(() => {
+    if (searchIndex !== -1 && searchResults[searchIndex]) {
+      setHighlightedId(searchResults[searchIndex].id);
+    } else if (searchResults.length === 0) {
+      setHighlightedId(null);
+    }
+  }, [searchIndex, searchResults]);
 
   // 드래그 앤 드롭 핸들러
   const handleDragOver = (e: React.DragEvent) => {
@@ -164,7 +181,12 @@ export const MessageList = ({
         const isMyMessage = message.senderId === currentUserId;
         const isSystemMessage = message.type === "SYSTEM";
         const isBotMessage = message.type === "BOT";
-        const isHighlighted = highlightedId === message.id;
+        
+        // 검색 결과 강조 로직
+        const isSearchResult = searchResults.some(m => m.id === message.id);
+        const isActiveSearchResult = searchIndex !== -1 && searchResults[searchIndex]?.id === message.id;
+        const isHighlighted = highlightedId === message.id || isActiveSearchResult;
+        
         // 상단에 메시지가 추가될 때, 기존의 가장 첫 번째였던 메시지에 앵커를 걸어 스크롤 위치를 유지합니다.
         const isAnchor = index === messages.length - prevMessageCount;
 
@@ -190,7 +212,13 @@ export const MessageList = ({
             key={message.id}
             id={`message-${message.id}`}
             className={`flex flex-col ${isMyMessage ? "items-end" : "items-start"} transition-all duration-500 ${
-              isHighlighted ? "scale-[1.02] bg-yellow-50/50 dark:bg-yellow-900/20 rounded-lg p-2 ring-1 ring-yellow-200 dark:ring-yellow-800" : ""
+              isActiveSearchResult 
+                ? "scale-[1.02] bg-orange-100/50 dark:bg-orange-900/30 rounded-lg p-2 ring-2 ring-orange-400 dark:ring-orange-600 z-10" 
+                : isSearchResult
+                ? "bg-yellow-50/80 dark:bg-yellow-900/20 rounded-lg p-2 ring-1 ring-yellow-200 dark:ring-yellow-800"
+                : isHighlighted
+                ? "scale-[1.02] bg-yellow-50/50 dark:bg-yellow-900/20 rounded-lg p-2 ring-1 ring-yellow-200 dark:ring-yellow-800"
+                : ""
             }`}
             style={isAnchor ? { overflowAnchor: "auto" } : { overflowAnchor: "none" }}
           >

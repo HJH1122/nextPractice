@@ -7,8 +7,7 @@ import { MessageList } from "./message-list";
 import { MessageInput } from "./message-input";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Users, Search } from "lucide-react";
-import { ChatSearch } from "./chat-search";
+import { Users, Search, X, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
 
 export const ChatRoom = () => {
   const { socket, isConnected } = useSocket();
@@ -21,8 +20,15 @@ export const ChatRoom = () => {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
+  
+  // 검색 관련 상태
   const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Message[]>([]);
+  const [searchIndex, setSearchIndex] = useState(-1);
+  const [isSearching, setIsSearching] = useState(false);
   const [scrollToId, setScrollToId] = useState<string | null>(null);
+  const lastSearchQuery = useRef("");
   
   // 파일 업로드 관련 상태 (MessageInput에서 끌어올림)
   const [isUploading, setIsUploading] = useState(false);
@@ -32,6 +38,65 @@ export const ChatRoom = () => {
   // 입력한 username을 ID로 사용합니다 (테스트용)
   const currentUserId = username;
   const roomId = "general-room";
+
+  // 검색 로직
+  const handleSearch = async (e?: React.FormEvent, direction: "next" | "prev" = "next") => {
+    if (e) e.preventDefault();
+    if (!searchQuery || searchQuery.length < 2) return;
+
+    // 새로운 검색어이거나 아직 결과가 없는 경우
+    if (searchResults.length === 0 || searchQuery !== lastSearchQuery.current) {
+      try {
+        setIsSearching(true);
+        const response = await fetch(`/api/messages/search?roomId=${roomId}&q=${encodeURIComponent(searchQuery)}`);
+        if (response.ok) {
+          const data = await response.json();
+          setSearchResults(data);
+          lastSearchQuery.current = searchQuery;
+          if (data.length > 0) {
+            setSearchIndex(0);
+            navigateToResult(data[0].id);
+          } else {
+            setSearchIndex(-1);
+            alert("검색 결과가 없습니다.");
+          }
+        }
+      } catch (error) {
+        console.error("Search error:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    } else {
+      // 기존 검색 결과에서 이동 (Enter를 다시 누르거나 화살표 클릭 시)
+      let nextIndex = searchIndex;
+      if (direction === "next") {
+        nextIndex = (searchIndex + 1) % searchResults.length;
+      } else {
+        nextIndex = (searchIndex - 1 + searchResults.length) % searchResults.length;
+      }
+      setSearchIndex(nextIndex);
+      navigateToResult(searchResults[nextIndex].id);
+    }
+  };
+
+  const navigateToResult = (id: string) => {
+    const exists = messages.find(m => m.id === id);
+    if (!exists) {
+      alert("해당 메시지가 현재 목록에 없습니다. 상단으로 스크롤하여 더 많은 메시지를 불러온 후 다시 시도해주세요.");
+      return;
+    }
+    setScrollToId(id);
+  };
+
+  const closeSearch = () => {
+    setShowSearch(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchIndex(-1);
+    lastSearchQuery.current = "";
+  };
+
+  // ... (기존 useEffect 및 핸들러들)
 
   // 파일 업로드 함수 (MessageInput에서 끌어올림)
   const uploadFiles = async (files: FileList | File[]) => {
@@ -256,59 +321,98 @@ export const ChatRoom = () => {
   return (
     <div className="flex flex-col h-full border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 shadow-sm overflow-hidden relative">
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="font-semibold text-sm">실시간 채팅</h2>
-            <p className="text-xs text-blue-600 font-medium">내 닉네임: {username}</p>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex items-center gap-2 text-xs"
-            onClick={() => setShowOnlineUsers(!showOnlineUsers)}
-          >
-            <Users className="w-4 h-4" />
-            접속 중인 사람 보기 ({onlineUsers.length})
-          </Button>
+        <div className="flex items-center gap-4 flex-1">
+          {!showSearch ? (
+            <>
+              <div>
+                <h2 className="font-semibold text-sm">실시간 채팅</h2>
+                <p className="text-xs text-blue-600 font-medium">내 닉네임: {username}</p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center gap-2 text-xs"
+                onClick={() => setShowOnlineUsers(!showOnlineUsers)}
+              >
+                <Users className="w-4 h-4" />
+                접속 중인 사람 보기 ({onlineUsers.length})
+              </Button>
+            </>
+          ) : (
+            <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="대화 내용 검색..."
+                  className="pl-9 h-9"
+                  autoFocus
+                />
+              </div>
+              {searchResults.length > 0 && (
+                <div className="flex items-center gap-1 text-xs text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-2 py-1.5 rounded-md">
+                  <span>{searchIndex + 1} / {searchResults.length}</span>
+                  <div className="flex items-center border-l border-zinc-300 dark:border-zinc-700 ml-1 pl-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleSearch(undefined, "next")}
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleSearch(undefined, "prev")}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {isSearching && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={closeSearch}
+                className="h-8 w-8"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </form>
+          )}
         </div>
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowSearch(!showSearch)}
-            className={`h-8 w-8 ${showSearch ? "text-blue-600 bg-blue-50" : "text-zinc-500"}`}
-          >
-            <Search className="w-5 h-5" />
-          </Button>
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                isConnected ? "bg-green-500" : "bg-red-500"
-              }`}
-            />
-            <span className="text-xs text-zinc-500">
-              {isConnected ? "연결됨" : "연결 중..."}
-            </span>
+        {!showSearch && (
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSearch(true)}
+              className="h-8 w-8 text-zinc-500"
+            >
+              <Search className="w-5 h-5" />
+            </Button>
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  isConnected ? "bg-green-500" : "bg-red-500"
+                }`}
+              />
+              <span className="text-xs text-zinc-500">
+                {isConnected ? "연결됨" : "연결 중..."}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       
-      {/* 검색 사이드바 */}
-      {showSearch && (
-        <ChatSearch 
-          roomId={roomId} 
-          onClose={() => setShowSearch(false)} 
-          onSelectMessage={(id) => {
-            const exists = messages.find(m => m.id === id);
-            if (!exists) {
-              alert("해당 메시지가 현재 목록에 없습니다. 상단으로 스크롤하여 더 많은 메시지를 불러온 후 다시 시도해주세요.");
-              return;
-            }
-            setScrollToId(id);
-            setShowSearch(false);
-          }}
-        />
-      )}
+      {/* 검색 사이드바 제거됨 */}
       
       {/* 접속 중인 사용자 목록 오버레이 */}
       {showOnlineUsers && (
@@ -353,6 +457,8 @@ export const ChatRoom = () => {
           isUploading={isUploading}
           scrollToMessageId={scrollToId}
           onScrollComplete={() => setScrollToId(null)}
+          searchResults={searchResults}
+          searchIndex={searchIndex}
         />
       )}
       
