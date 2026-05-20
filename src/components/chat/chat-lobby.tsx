@@ -160,16 +160,16 @@ export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout
                 <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
                 <span className="hidden sm:inline">새로고침</span>
               </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setView("create")}
+                className="flex items-center gap-1"
+              >
+                <Plus className="w-4 h-4" /> 방 만들기
+              </Button>
             </>
           )}
-          <Button 
-            variant={view === "create" ? "default" : "outline"} 
-            size="sm" 
-            onClick={() => setView("create")}
-            className="flex items-center gap-1"
-          >
-            <Plus className="w-4 h-4" /> 방 만들기
-          </Button>
         </div>
       </div>
 
