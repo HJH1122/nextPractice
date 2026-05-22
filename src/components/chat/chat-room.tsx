@@ -320,8 +320,8 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave }: Cha
               </Button>
             </>
           ) : (
-            <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1">
-              <div className="relative flex-1 max-w-md">
+            <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1 justify-end">
+              <div className="relative w-full max-w-md">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
                 <Input
                   value={searchQuery}
