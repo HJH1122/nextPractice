@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, MessageCircle, Loader2, User, LogOut, Crown, RefreshCw } from "lucide-react";
+import { Plus, MessageCircle, Loader2, User, LogOut, Crown, RefreshCw, ChevronLeft } from "lucide-react";
 
 interface Room {
   id: string;
@@ -125,6 +125,19 @@ export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout
     <div className="flex flex-col h-[600px] border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 shadow-sm overflow-hidden">
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {view === "create" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 -ml-1"
+              onClick={() => {
+                setNewRoomName("");
+                setView("list");
+              }}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+          )}
           <div>
             <h2 className="font-bold text-lg">채팅 로비</h2>
             <div className="flex items-center gap-2">
