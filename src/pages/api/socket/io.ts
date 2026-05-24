@@ -355,6 +355,55 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
       }
     });
 
+    socket.on("transfer-host", async ({ roomId, newCreatorId, requesterId }: { roomId: string, newCreatorId: string, requesterId: string }) => {
+      try {
+        // 1. 요청자가 현재 방장인지 확인
+        const room = await db.room.findUnique({
+          where: { id: roomId },
+          select: { creatorId: true, name: true }
+        });
+
+        if (!room || room.creatorId !== requesterId) {
+          console.error("[SOCKET_IO_TRANSFER_ERROR] Unauthorized transfer request");
+          return;
+        }
+
+        // 2. 위임받을 사용자가 DB에 존재하는지 확인 및 생성 (없을 경우 대비)
+        await db.user.upsert({
+          where: { id: newCreatorId },
+          update: {},
+          create: { 
+            id: newCreatorId, 
+            name: newCreatorId 
+          },
+        });
+
+        // 3. 데이터베이스 업데이트
+        await db.room.update({
+          where: { id: roomId },
+          data: { creatorId: newCreatorId }
+        });
+
+        // 4. 방의 모든 클라이언트에게 방장 변경 알림
+        io.to(roomId).emit("host-transferred", { roomId, newCreatorId });
+
+        // 5. 시스템 메시지 발송
+        const systemMessage: Message = {
+          id: `system-transfer-${Date.now()}`,
+          content: `방장이 ${newCreatorId}님으로 변경되었습니다.`,
+          senderId: "system",
+          roomId: roomId,
+          timestamp: new Date().toISOString(),
+          type: "SYSTEM",
+        };
+        io.to(roomId).emit("receive-message", systemMessage);
+
+        console.log(`[SOCKET_IO] Host of room ${roomId} transferred from ${requesterId} to ${newCreatorId}`);
+      } catch (error) {
+        console.error("[SOCKET_IO_TRANSFER_ERROR]", error);
+      }
+    });
+
     socket.on("vote", async ({ pollId, optionId, userId }) => {
       try {
         await db.vote.upsert({

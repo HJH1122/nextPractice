@@ -15,9 +15,10 @@ interface ChatRoomProps {
   roomName: string;
   creatorId: string;
   onLeave: () => void;
+  onHostTransfer?: (newCreatorId: string) => void;
 }
 
-export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave }: ChatRoomProps) => {
+export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHostTransfer }: ChatRoomProps) => {
   const { socket, isConnected } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,6 +28,12 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave }: Cha
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
+  const [currentCreatorId, setCurrentCreatorId] = useState(creatorId);
+
+  // creatorId prop이 변경되면 currentCreatorId 상태도 동기화합니다.
+  useEffect(() => {
+    setCurrentCreatorId(creatorId);
+  }, [creatorId]);
   
   // 검색 관련 상태
   const [showSearch, setShowSearch] = useState(false);
@@ -241,6 +248,16 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave }: Cha
       }
     });
 
+    socket.on("host-transferred", ({ roomId: targetRoomId, newCreatorId }: { roomId: string; newCreatorId: string }) => {
+      if (targetRoomId === roomId) {
+        console.log(`[SOCKET] Host transferred to ${newCreatorId}`);
+        setCurrentCreatorId(newCreatorId);
+        if (onHostTransfer) {
+          onHostTransfer(newCreatorId);
+        }
+      }
+    });
+
     socket.emit("join-room", { username, roomId });
 
     return () => {
@@ -251,8 +268,9 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave }: Cha
       socket.off("online-users");
       socket.off("poll-update");
       socket.off("room-deleted");
+      socket.off("host-transferred");
     };
-  }, [socket, roomId, username, onLeave]);
+  }, [socket, roomId, username, onLeave, onHostTransfer]);
 
   const onSendMessage = useCallback(
     (content: string, attachments?: Attachment[], poll?: any) => {
@@ -269,6 +287,22 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave }: Cha
       socket.emit("send-message", newMessage);
     },
     [socket, isConnected, currentUserId, roomId]
+  );
+
+  const onTransferHost = useCallback(
+    (newCreatorId: string) => {
+      if (!socket || !isConnected) return;
+      if (newCreatorId === username) return;
+      
+      if (!window.confirm(`${newCreatorId}님에게 방장 권한을 위임하시겠습니까?`)) return;
+      
+      socket.emit("transfer-host", { 
+        roomId, 
+        newCreatorId, 
+        requesterId: username 
+      });
+    },
+    [socket, isConnected, roomId, username]
   );
 
   const onTyping = useCallback(() => {
@@ -353,7 +387,7 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave }: Cha
         </div>
         {!showSearch && (
           <div className="flex items-center gap-4">
-            {username === creatorId && (
+            {username === currentCreatorId && (
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -389,16 +423,28 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave }: Cha
               <p className="text-xs text-zinc-500 p-2 text-center">접속자가 없습니다.</p>
             ) : (
               onlineUsers.map((user) => (
-                <div key={user} className="flex items-center gap-2 px-2 py-1.5 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 text-sm">
-                  {user === creatorId ? (
-                    <Crown className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                  ) : (
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                <div key={user} className="flex items-center justify-between group px-2 py-1.5 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 text-sm">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    {user === currentCreatorId ? (
+                      <Crown className="w-3 h-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                    ) : (
+                      <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                    )}
+                    <span className={`truncate ${user === currentCreatorId ? "font-bold text-blue-600" : user === username ? "font-bold text-blue-600" : ""}`}>
+                      {user}
+                      {user === username && " (나)"}
+                    </span>
+                  </div>
+                  {username === currentCreatorId && user !== username && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => onTransferHost(user)}
+                      className="h-6 px-2 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      방장위임
+                    </Button>
                   )}
-                  <span className={`truncate ${user === creatorId ? "font-bold text-blue-600" : user === username ? "font-bold text-blue-600" : ""}`}>
-                    {user}
-                    {user === username && " (나)"}
-                  </span>
                 </div>
               ))
             )}

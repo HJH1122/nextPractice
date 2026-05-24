@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { ChatRoom } from "@/components/chat/chat-room";
 import { ChatLobby } from "@/components/chat/chat-lobby";
 
@@ -31,9 +31,13 @@ export default function ChatPage() {
     setStatus("chat");
   };
 
-  const handleLeaveRoom = () => {
+  const handleLeaveRoom = useCallback(() => {
     setStatus("lobby");
-  };
+  }, []);
+
+  const handleHostTransfer = useCallback((newCreatorId: string) => {
+    setChatInfo((prev) => ({ ...prev, creatorId: newCreatorId }));
+  }, []);
 
   return (
     <main className="flex-1 p-4 md:p-8 h-[calc(100vh-64px)] max-w-4xl mx-auto">
@@ -63,6 +67,7 @@ export default function ChatPage() {
               roomName={chatInfo.roomName}
               creatorId={chatInfo.creatorId}
               onLeave={handleLeaveRoom}
+              onHostTransfer={handleHostTransfer}
             />
           )}
         </div>
