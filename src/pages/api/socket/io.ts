@@ -404,6 +404,54 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
       }
     });
 
+    socket.on("kick-user", async ({ roomId, targetUsername, requesterId }: { roomId: string, targetUsername: string, requesterId: string }) => {
+      try {
+        // 1. 요청자가 현재 방장인지 확인
+        const room = await db.room.findUnique({
+          where: { id: roomId },
+          select: { creatorId: true }
+        });
+
+        if (!room || room.creatorId !== requesterId) {
+          console.error("[SOCKET_IO_KICK_ERROR] Unauthorized kick request");
+          return;
+        }
+
+        // 2. 해당 유저의 모든 소켓 찾기
+        const targetSockets = Array.from(socketInfo.entries())
+          .filter(([id, info]) => info.username === targetUsername && info.roomId === roomId)
+          .map(([id, info]) => id);
+
+        if (targetSockets.length > 0) {
+          // 3. 대상 소켓들에게 강제 퇴장 알림 발송 및 소켓 연결 정리
+          targetSockets.forEach((socketId) => {
+            io.to(socketId).emit("user-kicked", { roomId });
+            
+            const targetSocket = io.sockets.sockets.get(socketId);
+            if (targetSocket) {
+              targetSocket.leave(roomId);
+              handleUserLeave(socketId);
+            }
+          });
+
+          // 4. 시스템 메시지 발송
+          const systemMessage: Message = {
+            id: `system-kick-${Date.now()}`,
+            content: `${targetUsername}님이 방장에 의해 강제 퇴장당하셨습니다.`,
+            senderId: "system",
+            roomId: roomId,
+            timestamp: new Date().toISOString(),
+            type: "SYSTEM",
+          };
+          io.to(roomId).emit("receive-message", systemMessage);
+          
+          console.log(`[SOCKET_IO] User ${targetUsername} kicked from room ${roomId} by ${requesterId}`);
+        }
+      } catch (error) {
+        console.error("[SOCKET_IO_KICK_ERROR]", error);
+      }
+    });
+
     socket.on("vote", async ({ pollId, optionId, userId }) => {
       try {
         await db.vote.upsert({

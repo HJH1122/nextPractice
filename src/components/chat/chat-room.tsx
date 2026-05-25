@@ -258,6 +258,13 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHos
       }
     });
 
+    socket.on("user-kicked", ({ roomId: kickedRoomId }: { roomId: string }) => {
+      if (kickedRoomId === roomId) {
+        alert("방장에 의해 강제 퇴장당하셨습니다.");
+        onLeave();
+      }
+    });
+
     socket.emit("join-room", { username, roomId });
 
     return () => {
@@ -269,6 +276,7 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHos
       socket.off("poll-update");
       socket.off("room-deleted");
       socket.off("host-transferred");
+      socket.off("user-kicked");
     };
   }, [socket, roomId, username, onLeave, onHostTransfer]);
 
@@ -300,6 +308,22 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHos
         roomId, 
         newCreatorId, 
         requesterId: username 
+      });
+    },
+    [socket, isConnected, roomId, username]
+  );
+
+  const onKickUser = useCallback(
+    (targetUsername: string) => {
+      if (!socket || !isConnected) return;
+      if (targetUsername === username) return;
+
+      if (!window.confirm(`${targetUsername}님을 정말로 강제 퇴장시키겠습니까?`)) return;
+
+      socket.emit("kick-user", {
+        roomId,
+        targetUsername,
+        requesterId: username
       });
     },
     [socket, isConnected, roomId, username]
@@ -436,14 +460,24 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHos
                     </span>
                   </div>
                   {username === currentCreatorId && user !== username && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => onTransferHost(user)}
-                      className="h-6 px-2 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      방장위임
-                    </Button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => onTransferHost(user)}
+                        className="h-6 px-2 text-[10px] text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                      >
+                        방장위임
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => onKickUser(user)}
+                        className="h-6 px-2 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        강제퇴장
+                      </Button>
+                    </div>
                   )}
                 </div>
               ))
