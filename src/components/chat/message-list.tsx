@@ -160,21 +160,36 @@ export const MessageList = ({
   useEffect(() => {
     if (messages.length === 0) return;
 
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+
+    // 하단 근처인지 확인하는 함수
+    const isAtBottom = () => {
+      const threshold = 150; // 하단에서 150px 이내면 하단으로 간주
+      return scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight <= threshold;
+    };
+
     // 1. 초기 렌더링 시 하단으로 이동
     if (!hasInitialized.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "auto" });
-      hasInitialized.current = true;
+      // DOM 렌더링과 이미지 로딩 시간을 고려하여 약간의 지연 후 스크롤
+      const timer = setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "auto" });
+        hasInitialized.current = true;
+      }, 100);
       setPrevMessageCount(messages.length);
-      return;
+      return () => clearTimeout(timer);
     }
 
     // 2. 새로운 메시지가 하단에 추가됨 (실시간 채팅)
-    // 마지막 메시지가 내 메시지거나, 스크롤이 이미 하단 근처에 있다면 아래로 스크롤
     const isNewMessageAtBottom = messages.length > prevMessageCount;
     if (isNewMessageAtBottom) {
       const lastMessage = messages[messages.length - 1];
-      if (lastMessage.senderId === currentUserId) {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      // 내가 보낸 메시지이거나, 현재 스크롤이 하단 근처인 경우에만 자동 스크롤
+      if (lastMessage.senderId === currentUserId || isAtBottom()) {
+        // 부드러운 스크롤을 위해 약간의 지연 (DOM 업데이트 대기)
+        setTimeout(() => {
+          bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 50);
       }
     }
 
