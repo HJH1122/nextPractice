@@ -452,6 +452,72 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
       }
     });
 
+    socket.on("update-announcement", async ({ roomId, announcement, requesterId }: { roomId: string, announcement: string, requesterId: string }) => {
+      try {
+        const room = await db.room.findUnique({
+          where: { id: roomId },
+          select: { creatorId: true }
+        });
+
+        if (!room || room.creatorId !== requesterId) {
+          console.error("[SOCKET_IO_ANNOUNCEMENT_ERROR] Unauthorized request");
+          return;
+        }
+
+        await db.room.update({
+          where: { id: roomId },
+          data: { announcement }
+        });
+
+        io.to(roomId).emit("announcement-updated", { announcement });
+
+        const systemMessage: Message = {
+          id: `system-announcement-${Date.now()}`,
+          content: announcement ? "새로운 공지사항이 등록되었습니다." : "공지사항이 삭제되었습니다.",
+          senderId: "system",
+          roomId: roomId,
+          timestamp: new Date().toISOString(),
+          type: "SYSTEM",
+        };
+        io.to(roomId).emit("receive-message", systemMessage);
+      } catch (error) {
+        console.error("[SOCKET_IO_ANNOUNCEMENT_ERROR]", error);
+      }
+    });
+
+    socket.on("delete-announcement", async ({ roomId, requesterId }: { roomId: string, requesterId: string }) => {
+      try {
+        const room = await db.room.findUnique({
+          where: { id: roomId },
+          select: { creatorId: true }
+        });
+
+        if (!room || room.creatorId !== requesterId) {
+          console.error("[SOCKET_IO_ANNOUNCEMENT_DELETE_ERROR] Unauthorized request");
+          return;
+        }
+
+        await db.room.update({
+          where: { id: roomId },
+          data: { announcement: null }
+        });
+
+        io.to(roomId).emit("announcement-deleted");
+
+        const systemMessage: Message = {
+          id: `system-announcement-del-${Date.now()}`,
+          content: "공지사항이 삭제되었습니다.",
+          senderId: "system",
+          roomId: roomId,
+          timestamp: new Date().toISOString(),
+          type: "SYSTEM",
+        };
+        io.to(roomId).emit("receive-message", systemMessage);
+      } catch (error) {
+        console.error("[SOCKET_IO_ANNOUNCEMENT_DELETE_ERROR]", error);
+      }
+    });
+
     socket.on("vote", async ({ pollId, optionId, userId }) => {
       try {
         await db.vote.upsert({

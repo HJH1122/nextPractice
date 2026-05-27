@@ -7,18 +7,19 @@ import { MessageList } from "./message-list";
 import { MessageInput } from "./message-input";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Users, Search, X, ChevronUp, ChevronDown, Loader2, ArrowLeft, Trash2, Crown } from "lucide-react";
+import { Users, Search, X, ChevronUp, ChevronDown, Loader2, ArrowLeft, Trash2, Crown, Megaphone, Bell } from "lucide-react";
 
 interface ChatRoomProps {
   username: string;
   roomId: string;
   roomName: string;
   creatorId: string;
+  initialAnnouncement?: string | null;
   onLeave: () => void;
   onHostTransfer?: (newCreatorId: string) => void;
 }
 
-export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHostTransfer }: ChatRoomProps) => {
+export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnouncement, onLeave, onHostTransfer }: ChatRoomProps) => {
   const { socket, isConnected } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,11 +30,19 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHos
   const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [currentCreatorId, setCurrentCreatorId] = useState(creatorId);
+  const [announcement, setAnnouncement] = useState<string | null>(initialAnnouncement || null);
+  const [isAnnouncementEditing, setIsAnnouncementEditing] = useState(false);
+  const [newAnnouncement, setNewAnnouncement] = useState("");
 
   // creatorId prop이 변경되면 currentCreatorId 상태도 동기화합니다.
   useEffect(() => {
     setCurrentCreatorId(creatorId);
   }, [creatorId]);
+
+  // initialAnnouncement가 변경될 경우 (방 입장 시 등)
+  useEffect(() => {
+    setAnnouncement(initialAnnouncement || null);
+  }, [initialAnnouncement]);
   
   // 검색 관련 상태
   const [showSearch, setShowSearch] = useState(false);
@@ -265,6 +274,14 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHos
       }
     });
 
+    socket.on("announcement-updated", ({ announcement }: { announcement: string }) => {
+      setAnnouncement(announcement);
+    });
+
+    socket.on("announcement-deleted", () => {
+      setAnnouncement(null);
+    });
+
     socket.emit("join-room", { username, roomId });
 
     return () => {
@@ -277,8 +294,30 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHos
       socket.off("room-deleted");
       socket.off("host-transferred");
       socket.off("user-kicked");
+      socket.off("announcement-updated");
+      socket.off("announcement-deleted");
     };
   }, [socket, roomId, username, onLeave, onHostTransfer]);
+
+  const onUpdateAnnouncement = useCallback(() => {
+    if (!socket || !isConnected) return;
+    socket.emit("update-announcement", { 
+      roomId, 
+      announcement: newAnnouncement, 
+      requesterId: username 
+    });
+    setIsAnnouncementEditing(false);
+    setNewAnnouncement("");
+  }, [socket, isConnected, roomId, newAnnouncement, username]);
+
+  const onDeleteAnnouncement = useCallback(() => {
+    if (!socket || !isConnected) return;
+    if (!window.confirm("공지사항을 삭제하시겠습니까?")) return;
+    socket.emit("delete-announcement", { 
+      roomId, 
+      requesterId: username 
+    });
+  }, [socket, isConnected, roomId, username]);
 
   const onSendMessage = useCallback(
     (content: string, attachments?: Attachment[], poll?: any) => {
@@ -434,6 +473,65 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, onLeave, onHos
         )}
       </div>
       
+      {/* 공지사항 바 */}
+      {(announcement || (username === currentCreatorId)) && (
+        <div className="bg-blue-50 dark:bg-blue-900/10 border-b border-blue-100 dark:border-blue-900/30 px-4 py-2 flex items-center justify-between gap-3 group relative min-h-[40px]">
+          <div className="flex items-center gap-3 flex-1 overflow-hidden">
+            <Megaphone className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            {isAnnouncementEditing ? (
+              <div className="flex items-center gap-2 flex-1">
+                <Input
+                  value={newAnnouncement}
+                  onChange={(e) => setNewAnnouncement(e.target.value)}
+                  placeholder="공지사항 입력..."
+                  className="h-7 text-xs"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onUpdateAnnouncement();
+                    if (e.key === "Escape") setIsAnnouncementEditing(false);
+                  }}
+                />
+                <Button size="sm" className="h-7 px-2 text-xs" onClick={onUpdateAnnouncement}>등록</Button>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setIsAnnouncementEditing(false)}>취소</Button>
+              </div>
+            ) : (
+              <div className="flex-1 truncate">
+                <p className="text-xs text-zinc-700 dark:text-zinc-300 font-medium truncate">
+                  {announcement || (username === currentCreatorId ? "공지사항을 등록해보세요." : "")}
+                </p>
+              </div>
+            )}
+          </div>
+          {!isAnnouncementEditing && username === currentCreatorId && (
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                title="공지 설정"
+                className="h-7 w-7 text-zinc-500 hover:text-blue-600" 
+                onClick={() => {
+                  setNewAnnouncement(announcement || "");
+                  setIsAnnouncementEditing(true);
+                }}
+              >
+                <Bell className="w-3.5 h-3.5" />
+              </Button>
+              {announcement && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  title="공지 삭제"
+                  className="h-7 w-7 text-zinc-500 hover:text-red-600" 
+                  onClick={onDeleteAnnouncement}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {showOnlineUsers && (
         <div className="absolute top-[73px] left-4 z-50 w-64 max-h-[300px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md shadow-lg p-2">
           <div className="flex items-center justify-between px-2 py-1 mb-2 border-b border-zinc-100 dark:border-zinc-800">

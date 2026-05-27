@@ -9,13 +9,14 @@ interface Room {
   id: string;
   name: string;
   creatorId: string;
+  announcement: string | null;
   createdAt: string;
   participantCount: number;
   participants: string[];
 }
 
 interface ChatLobbyProps {
-  onJoinRoom: (username: string, roomId: string, roomName: string, creatorId: string) => void;
+  onJoinRoom: (username: string, roomId: string, roomName: string, creatorId: string, announcement: string | null) => void;
   username: string;
   isNameSet: boolean;
   onSetName: (name: string) => void;
@@ -84,7 +85,7 @@ export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout
       if (response.ok) {
         const newRoom = await response.json();
         setNewRoomName(""); // Clear input on success
-        onJoinRoom(username, newRoom.id, newRoom.name, newRoom.creatorId);
+        onJoinRoom(username, newRoom.id, newRoom.name, newRoom.creatorId, newRoom.announcement);
       }
     } catch (error) {
       console.error("Failed to create room:", error);
@@ -210,7 +211,7 @@ export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout
               rooms.map((room) => (
                 <div 
                   key={room.id}
-                  onClick={() => onJoinRoom(username, room.id, room.name, room.creatorId)}
+                  onClick={() => onJoinRoom(username, room.id, room.name, room.creatorId, room.announcement)}
                   className="relative group"
                 >
                   <div className="flex items-center justify-between p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 cursor-pointer transition-all">
