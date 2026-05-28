@@ -126,11 +126,11 @@ export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout
     <div className="flex flex-col h-[600px] border border-zinc-200 dark:border-zinc-800 rounded-lg bg-white dark:bg-zinc-950 shadow-sm overflow-hidden">
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {view === "create" && (
+          {view === "create" ? (
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 -ml-1"
+              className="h-8 w-8 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
               onClick={() => {
                 setNewRoomName("");
                 setView("list");
@@ -138,6 +138,8 @@ export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
+          ) : (
+            <div className="w-8 h-8" />
           )}
           <div>
             <h2 className="font-bold text-lg">채팅 로비</h2>
@@ -274,7 +276,6 @@ export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout
                 <Input
                   value={newRoomName}
                   onChange={(e) => setNewRoomName(e.target.value)}
-                  placeholder="예: 프로젝트 회의, 맛집 정보 공유..."
                   autoFocus
                 />
               </div>
