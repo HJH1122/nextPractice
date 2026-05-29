@@ -8,7 +8,7 @@ export async function GET() {
     
     // global에 저장된 roomUsers 가져오기
     const globalForSocket = global as any;
-    const roomUsers = globalForSocket.roomUsers as Map<string, Set<string>>;
+    const roomUsers = globalForSocket.roomUsers as Map<string, Map<string, string>>;
 
     const rooms = await db.room.findMany({
       orderBy: {
@@ -18,8 +18,8 @@ export async function GET() {
 
     // Augment rooms with participant counts and list if available
     const roomsWithParticipants = rooms.map(room => {
-      const userSet = roomUsers?.get(room.id);
-      const participants = userSet ? Array.from(userSet) : [];
+      const userMap = roomUsers?.get(room.id);
+      const participants = userMap ? Array.from(userMap).map(([id, name]) => ({ id, name })) : [];
       
       return {
         ...room,

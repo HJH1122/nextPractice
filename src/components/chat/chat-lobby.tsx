@@ -12,18 +12,19 @@ interface Room {
   announcement: string | null;
   createdAt: string;
   participantCount: number;
-  participants: string[];
+  participants: { id: string, name: string }[];
 }
 
 interface ChatLobbyProps {
   onJoinRoom: (username: string, roomId: string, roomName: string, creatorId: string, announcement: string | null) => void;
   username: string;
+  userId: string;
   isNameSet: boolean;
   onSetName: (name: string) => void;
   onLogout: () => void;
 }
 
-export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout }: ChatLobbyProps) => {
+export const ChatLobby = ({ onJoinRoom, username, userId, isNameSet, onSetName, onLogout }: ChatLobbyProps) => {
   const [localUsername, setLocalUsername] = useState(username);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -78,7 +79,7 @@ export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           name: newRoomName,
-          creatorId: username 
+          creatorId: userId 
         }),
       });
 
@@ -243,14 +244,14 @@ export const ChatLobby = ({ onJoinRoom, username, isNameSet, onSetName, onLogout
                       {room.participants.length > 0 ? (
                         room.participants.map((participant, i) => (
                           <div key={i} className="flex items-center gap-2 text-xs">
-                            {participant === room.creatorId ? (
+                            {participant.id === room.creatorId ? (
                               <Crown className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                             ) : (
                               <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                             )}
-                            <span className={`truncate ${participant === room.creatorId ? "font-bold text-blue-600" : ""}`}>
-                              {participant}
-                              {participant === username && " (나)"}
+                            <span className={`truncate ${participant.id === room.creatorId ? "font-bold text-blue-600" : ""}`}>
+                              {participant.name}
+                              {participant.id === userId && " (나)"}
                             </span>
                           </div>
                         ))

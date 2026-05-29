@@ -7,6 +7,7 @@ import { ChatLobby } from "@/components/chat/chat-lobby";
 export default function ChatPage() {
   const [status, setStatus] = useState<"lobby" | "chat">("lobby");
   const [username, setUsername] = useState("");
+  const [userId, setUserId] = useState("");
   const [isNameSet, setIsNameSet] = useState(false);
   const [chatInfo, setChatInfo] = useState({
     roomId: "",
@@ -17,11 +18,14 @@ export default function ChatPage() {
 
   const handleSetName = (name: string) => {
     setUsername(name);
+    // 닉네임 설정을 고유 ID 생성 시점으로 활용
+    setUserId(`${name}-${Math.random().toString(36).substr(2, 9)}`);
     setIsNameSet(true);
   };
 
   const handleLogout = () => {
     setUsername("");
+    setUserId("");
     setIsNameSet(false);
     setStatus("lobby");
   };
@@ -57,6 +61,7 @@ export default function ChatPage() {
             <ChatLobby 
               onJoinRoom={handleJoinRoom} 
               username={username}
+              userId={userId}
               isNameSet={isNameSet}
               onSetName={handleSetName}
               onLogout={handleLogout}
@@ -64,6 +69,7 @@ export default function ChatPage() {
           ) : (
             <ChatRoom 
               username={username}
+              userId={userId}
               roomId={chatInfo.roomId}
               roomName={chatInfo.roomName}
               creatorId={chatInfo.creatorId}

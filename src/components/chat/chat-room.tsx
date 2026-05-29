@@ -11,6 +11,7 @@ import { Users, Search, X, ChevronUp, ChevronDown, Loader2, ArrowLeft, Trash2, C
 
 interface ChatRoomProps {
   username: string;
+  userId: string;
   roomId: string;
   roomName: string;
   creatorId: string;
@@ -19,7 +20,7 @@ interface ChatRoomProps {
   onHostTransfer?: (newCreatorId: string) => void;
 }
 
-export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnouncement, onLeave, onHostTransfer }: ChatRoomProps) => {
+export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initialAnnouncement, onLeave, onHostTransfer }: ChatRoomProps) => {
   const { socket, isConnected } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +28,7 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnounc
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
-  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<{ id: string; name: string }[]>([]);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [currentCreatorId, setCurrentCreatorId] = useState(creatorId);
   const [announcement, setAnnouncement] = useState<string | null>(initialAnnouncement || null);
@@ -58,7 +59,7 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnounc
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const currentUserId = username;
+  const currentUserId = userId;
 
   const handleDeleteRoom = async () => {
     if (!window.confirm("정말로 이 채팅방을 삭제하시겠습니까? 모든 대화 내용이 삭제됩니다.")) return;
@@ -68,7 +69,7 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnounc
       const response = await fetch(`/api/rooms/${roomId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creatorId: username }),
+        body: JSON.stringify({ creatorId: userId }), // ID 사용
       });
 
       if (!response.ok) {
@@ -240,7 +241,7 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnounc
       }
     });
 
-    socket.on("online-users", (users: string[]) => {
+    socket.on("online-users", (users: { id: string, name: string }[]) => {
       setOnlineUsers(users);
     });
 
@@ -282,7 +283,7 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnounc
       setAnnouncement(null);
     });
 
-    socket.emit("join-room", { username, roomId });
+    socket.emit("join-room", { userId, username, roomId });
 
     return () => {
       socket.emit("leave-room");
@@ -297,27 +298,27 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnounc
       socket.off("announcement-updated");
       socket.off("announcement-deleted");
     };
-  }, [socket, roomId, username, onLeave, onHostTransfer]);
+  }, [socket, roomId, username, userId, onLeave, onHostTransfer]);
 
   const onUpdateAnnouncement = useCallback(() => {
     if (!socket || !isConnected) return;
     socket.emit("update-announcement", { 
       roomId, 
       announcement: newAnnouncement, 
-      requesterId: username 
+      requesterId: userId // ID 사용
     });
     setIsAnnouncementEditing(false);
     setNewAnnouncement("");
-  }, [socket, isConnected, roomId, newAnnouncement, username]);
+  }, [socket, isConnected, roomId, newAnnouncement, userId]);
 
   const onDeleteAnnouncement = useCallback(() => {
     if (!socket || !isConnected) return;
     if (!window.confirm("공지사항을 삭제하시겠습니까?")) return;
     socket.emit("delete-announcement", { 
       roomId, 
-      requesterId: username 
+      requesterId: userId // ID 사용
     });
-  }, [socket, isConnected, roomId, username]);
+  }, [socket, isConnected, roomId, userId]);
 
   const onSendMessage = useCallback(
     (content: string, attachments?: Attachment[], poll?: any) => {
@@ -337,35 +338,35 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnounc
   );
 
   const onTransferHost = useCallback(
-    (newCreatorId: string) => {
+    (targetUser: { id: string, name: string }) => {
       if (!socket || !isConnected) return;
-      if (newCreatorId === username) return;
+      if (targetUser.id === userId) return;
       
-      if (!window.confirm(`${newCreatorId}님에게 방장 권한을 위임하시겠습니까?`)) return;
+      if (!window.confirm(`${targetUser.name}님에게 방장 권한을 위임하시겠습니까?`)) return;
       
       socket.emit("transfer-host", { 
         roomId, 
-        newCreatorId, 
-        requesterId: username 
+        newCreatorId: targetUser.id, 
+        requesterId: userId 
       });
     },
-    [socket, isConnected, roomId, username]
+    [socket, isConnected, roomId, userId]
   );
 
   const onKickUser = useCallback(
-    (targetUsername: string) => {
+    (targetUser: { id: string, name: string }) => {
       if (!socket || !isConnected) return;
-      if (targetUsername === username) return;
+      if (targetUser.id === userId) return;
 
-      if (!window.confirm(`${targetUsername}님을 정말로 강제 퇴장시키겠습니까?`)) return;
+      if (!window.confirm(`${targetUser.name}님을 정말로 강제 퇴장시키겠습니까?`)) return;
 
       socket.emit("kick-user", {
         roomId,
-        targetUsername,
-        requesterId: username
+        targetUserId: targetUser.id,
+        requesterId: userId
       });
     },
-    [socket, isConnected, roomId, username]
+    [socket, isConnected, roomId, userId]
   );
 
   const onTyping = useCallback(() => {
@@ -545,19 +546,19 @@ export const ChatRoom = ({ username, roomId, roomName, creatorId, initialAnnounc
               <p className="text-xs text-zinc-500 p-2 text-center">접속자가 없습니다.</p>
             ) : (
               onlineUsers.map((user) => (
-                <div key={user} className="flex items-center justify-between group px-2 py-1.5 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 text-sm">
+                <div key={user.id} className="flex items-center justify-between group px-2 py-1.5 rounded-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 text-sm">
                   <div className="flex items-center gap-2 overflow-hidden">
-                    {user === currentCreatorId ? (
+                    {user.id === currentCreatorId ? (
                       <Crown className="w-3 h-3 text-yellow-500 fill-yellow-500 flex-shrink-0" />
                     ) : (
                       <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                     )}
-                    <span className={`truncate ${user === currentCreatorId ? "font-bold text-blue-600" : user === username ? "font-bold text-blue-600" : ""}`}>
-                      {user}
-                      {user === username && " (나)"}
+                    <span className={`truncate ${user.id === currentCreatorId ? "font-bold text-blue-600" : user.id === userId ? "font-bold text-blue-600" : ""}`}>
+                      {user.name}
+                      {user.id === userId && " (나)"}
                     </span>
                   </div>
-                  {username === currentCreatorId && user !== username && (
+                  {userId === currentCreatorId && user.id !== userId && (
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button 
                         variant="ghost" 

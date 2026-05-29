@@ -14,11 +14,11 @@ export const config = {
 // URL 정규식 (http/https 또는 www. 로 시작하는 링크 감지)
 const URL_REGEX = /((https?:\/\/[^\s]+)|(www\.[^\s]+))/g;
 
-// 접속 중인 사용자 정보를 저장할 구조 (roomId -> Set of usernames)
+// 접속 중인 사용자 정보를 저장할 구조 (roomId -> Map of userId to username)
 // Next.js HMR 상황에서도 상태를 유지하기 위해 전역 객체 사용
 const globalForSocket = global as unknown as {
-  roomUsers: Map<string, Set<string>>;
-  socketInfo: Map<string, { username: string; roomId: string }>;
+  roomUsers: Map<string, Map<string, string>>;
+  socketInfo: Map<string, { userId: string; username: string; roomId: string }>;
 };
 
 if (!globalForSocket.roomUsers) {
@@ -43,22 +43,22 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
   const handleUserLeave = (socketId: string) => {
     const info = socketInfo.get(socketId);
     if (info) {
-      const { username, roomId } = info;
+      const { userId, username, roomId } = info;
       socketInfo.delete(socketId);
       
-      // 해당 방에 동일한 닉네임을 사용하는 다른 소켓이 남아있는지 확인
-      const otherSocketsInRoom = Array.from(socketInfo.values()).some(
-        (s) => s.username === username && s.roomId === roomId
+      // 해당 방에 동일한 유저(userId)를 사용하는 다른 소켓이 남아있는지 확인
+      const otherSocketsOfUser = Array.from(socketInfo.values()).some(
+        (s) => s.userId === userId && s.roomId === roomId
       );
 
       if (roomUsers.has(roomId)) {
-        const users = roomUsers.get(roomId)!;
+        const usersMap = roomUsers.get(roomId)!;
         
         // 다른 소켓이 없을 때만 목록에서 완전히 제거 및 퇴장 메시지 발송
-        if (!otherSocketsInRoom) {
-          users.delete(username);
+        if (!otherSocketsOfUser) {
+          usersMap.delete(userId);
           
-          const userList = Array.from(users);
+          const userList = Array.from(usersMap).map(([id, name]) => ({ id, name }));
           io.to(roomId).emit("online-users", userList);
 
           const leaveMessage: Message = {
@@ -70,7 +70,7 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
             type: "SYSTEM",
           };
           io.to(roomId).emit("receive-message", leaveMessage);
-          console.log(`[SOCKET_IO] User ${username} left room ${roomId} (socket: ${socketId})`);
+          console.log(`[SOCKET_IO] User ${username}(${userId}) left room ${roomId} (socket: ${socketId})`);
         }
       }
     }
@@ -80,22 +80,22 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
     console.log(`[SOCKET_IO] New client connected: ${socket.id}`);
 
     // 사용자가 채팅방에 입장할 때 호출
-    socket.on("join-room", ({ username, roomId }: { username: string; roomId: string }) => {
+    socket.on("join-room", ({ userId, username, roomId }: { userId: string; username: string; roomId: string }) => {
       // 기존에 다른 정보가 있었다면 정리 (혹은 같은 소켓으로 재입장 시)
       handleUserLeave(socket.id);
 
       socket.join(roomId);
-      socketInfo.set(socket.id, { username, roomId });
+      socketInfo.set(socket.id, { userId, username, roomId });
 
       if (!roomUsers.has(roomId)) {
-        roomUsers.set(roomId, new Set());
+        roomUsers.set(roomId, new Map());
       }
-      roomUsers.get(roomId)!.add(username);
+      roomUsers.get(roomId)!.set(userId, username);
 
-      console.log(`[SOCKET_IO] User ${username} joined room ${roomId} (socket: ${socket.id})`);
+      console.log(`[SOCKET_IO] User ${username}(${userId}) joined room ${roomId} (socket: ${socket.id})`);
       
       // 1. 해당 방의 클라이언트들에게 현재 방 접속자 목록 전송
-      const userList = Array.from(roomUsers.get(roomId)!);
+      const userList = Array.from(roomUsers.get(roomId)!).map(([id, name]) => ({ id, name }));
       io.to(roomId).emit("online-users", userList);
 
       // 2. 입장 알림 시스템 메시지 발송
@@ -404,7 +404,7 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
       }
     });
 
-    socket.on("kick-user", async ({ roomId, targetUsername, requesterId }: { roomId: string, targetUsername: string, requesterId: string }) => {
+    socket.on("kick-user", async ({ roomId, targetUserId, requesterId }: { roomId: string, targetUserId: string, requesterId: string }) => {
       try {
         // 1. 요청자가 현재 방장인지 확인
         const room = await db.room.findUnique({
@@ -417,12 +417,14 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
           return;
         }
 
-        // 2. 해당 유저의 모든 소켓 찾기
+        // 2. 해당 유저의 모든 소켓 찾기 (userId 기준)
         const targetSockets = Array.from(socketInfo.entries())
-          .filter(([id, info]) => info.username === targetUsername && info.roomId === roomId)
+          .filter(([id, info]) => info.userId === targetUserId && info.roomId === roomId)
           .map(([id, info]) => id);
 
         if (targetSockets.length > 0) {
+          const targetUsername = socketInfo.get(targetSockets[0])?.username || "알 수 없는 유저";
+
           // 3. 대상 소켓들에게 강제 퇴장 알림 발송 및 소켓 연결 정리
           targetSockets.forEach((socketId) => {
             io.to(socketId).emit("user-kicked", { roomId });
@@ -445,7 +447,7 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
           };
           io.to(roomId).emit("receive-message", systemMessage);
           
-          console.log(`[SOCKET_IO] User ${targetUsername} kicked from room ${roomId} by ${requesterId}`);
+          console.log(`[SOCKET_IO] User ${targetUsername}(${targetUserId}) kicked from room ${roomId} by ${requesterId}`);
         }
       } catch (error) {
         console.error("[SOCKET_IO_KICK_ERROR]", error);
