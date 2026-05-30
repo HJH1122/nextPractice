@@ -451,7 +451,7 @@ export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initia
         </div>
         {!showSearch && (
           <div className="flex items-center gap-4">
-            {username === currentCreatorId && (
+            {userId === currentCreatorId && (
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -475,7 +475,7 @@ export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initia
       </div>
       
       {/* 공지사항 바 */}
-      {(announcement || (username === currentCreatorId)) && (
+      {(announcement || (userId === currentCreatorId)) && (
         <div className="bg-blue-50 dark:bg-blue-900/10 border-b border-blue-100 dark:border-blue-900/30 px-4 py-2 flex items-center justify-between gap-3 group relative min-h-[40px]">
           <div className="flex items-center gap-3 flex-1 overflow-hidden">
             <Megaphone className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -498,12 +498,12 @@ export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initia
             ) : (
               <div className="flex-1 truncate">
                 <p className="text-xs text-zinc-700 dark:text-zinc-300 font-medium truncate">
-                  {announcement || (username === currentCreatorId ? "공지사항을 등록해보세요." : "")}
+                  {announcement || (userId === currentCreatorId ? "공지사항을 등록해보세요." : "")}
                 </p>
               </div>
             )}
           </div>
-          {!isAnnouncementEditing && username === currentCreatorId && (
+          {!isAnnouncementEditing && userId === currentCreatorId && (
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button 
                 variant="ghost" 
