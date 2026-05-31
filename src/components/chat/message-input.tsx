@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Paperclip, Loader2, X, Image as ImageIcon, BarChart3 } from "lucide-react";
 import { Attachment } from "@/types/socket";
@@ -35,7 +34,24 @@ export const MessageInput = ({
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showPollForm, setShowPollForm] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 입력창 높이 자동 조절
+  const adjustHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "inherit";
+      const computed = window.getComputedStyle(textarea);
+      const height = textarea.scrollHeight + parseInt(computed.borderTopWidth) + parseInt(computed.borderBottomWidth);
+      textarea.style.height = `${Math.min(height, 200)}px`; // 최대 200px
+    }
+  };
+
+  useEffect(() => {
+    adjustHeight();
+  }, [content]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
 
     // 타이핑 시작 이벤트 처리
@@ -58,6 +74,13 @@ export const MessageInput = ({
     setTypingTimeout(timeout);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e as any);
+    }
+  };
+
   const handleFileClick = () => {
     fileInputRef.current?.click();
   };
@@ -74,7 +97,7 @@ export const MessageInput = ({
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if ((!content.trim() && attachments.length === 0) || disabled || isUploading) return;
 
     // 전송 시 타이핑 상태 즉시 해제
@@ -85,6 +108,11 @@ export const MessageInput = ({
     onSendMessage(content, attachments.length > 0 ? attachments : undefined);
     setContent("");
     setAttachments([]);
+    
+    // 높이 초기화
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "inherit";
+    }
   };
 
   const handlePollSubmit = (question: string, options: string[]) => {
@@ -179,12 +207,15 @@ export const MessageInput = ({
             <BarChart3 className="w-5 h-5" />
           </Button>
         </div>
-        <Input
+        <textarea
+          ref={textareaRef}
           value={content}
           onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
           placeholder={isUploading ? "파일 업로드 중..." : "메시지를 입력하세요..."}
           disabled={disabled || isUploading}
-          className="flex-1 ml-1"
+          className="flex-1 ml-1 bg-zinc-100 dark:bg-zinc-800 border-none focus:ring-0 resize-none rounded-md px-3 py-2 text-sm min-h-[40px] max-h-[200px] overflow-y-auto"
+          rows={1}
         />
         <Button type="submit" disabled={disabled || (!content.trim() && attachments.length === 0) || isUploading} className="ml-1">
           전송

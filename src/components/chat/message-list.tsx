@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, FileIcon, Download, Image as ImageIcon, Paperclip, Pencil, X as CloseIcon, Check, Trash2 } from "lucide-react";
 import { PollDisplay } from "./poll-display";
 import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 
 interface MessageListProps {
   messages: Message[];
@@ -322,12 +321,13 @@ export const MessageList = ({
                   >
                     {editingId === message.id ? (
                       <div className="flex flex-col gap-2 min-w-[200px]">
-                        <Input
+                        <textarea
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
                           onKeyDown={(e) => handleKeyDown(e, message.id)}
-                          className="h-8 text-sm bg-blue-700 border-blue-500 text-white placeholder:text-blue-300 focus-visible:ring-blue-400"
+                          className="w-full text-sm bg-blue-700 border border-blue-500 text-white placeholder:text-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-400 rounded-md p-2 resize-none overflow-y-auto max-h-[150px]"
                           autoFocus
+                          rows={Math.min(editValue.split("\n").length || 1, 5)}
                         />
                         <div className="flex items-center justify-end gap-1">
                           <Button 
@@ -350,7 +350,7 @@ export const MessageList = ({
                       </div>
                     ) : (
                       <>
-                        {message.content && <p className="text-sm leading-relaxed">{message.content}</p>}
+                        {message.content && <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>}
                         {isMyMessage && !isSystemMessage && !isBotMessage && (
                           <div className="absolute -left-16 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
