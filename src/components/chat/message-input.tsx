@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Loader2, X, Image as ImageIcon, BarChart3 } from "lucide-react";
+import { Paperclip, Loader2, X, Image as ImageIcon, BarChart3, Smile } from "lucide-react";
 import { Attachment } from "@/types/socket";
 import { PollForm } from "./poll-form";
+import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
 
 interface MessageInputProps {
   onSendMessage: (content: string, attachments?: Attachment[], poll?: any) => void;
@@ -33,8 +34,10 @@ export const MessageInput = ({
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showPollForm, setShowPollForm] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // 입력창 높이 자동 조절
   const adjustHeight = () => {
@@ -50,6 +53,22 @@ export const MessageInput = ({
   useEffect(() => {
     adjustHeight();
   }, [content]);
+
+  // 이모지 피커 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
@@ -92,6 +111,12 @@ export const MessageInput = ({
     }
   };
 
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setContent((prev) => prev + emojiData.emoji);
+    // 선택 후 입력창에 포커스 유지
+    textareaRef.current?.focus();
+  };
+
   const removeAttachment = (id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   };
@@ -104,6 +129,7 @@ export const MessageInput = ({
     if (typingTimeout) clearTimeout(typingTimeout);
     setIsTyping(false);
     onStopTyping();
+    setShowEmojiPicker(false);
 
     onSendMessage(content, attachments.length > 0 ? attachments : undefined);
     setContent("");
@@ -140,6 +166,23 @@ export const MessageInput = ({
           <PollForm 
             onClose={() => setShowPollForm(false)} 
             onSubmit={handlePollSubmit}
+          />
+        </div>
+      )}
+
+      {/* 이모지 피커 팝업 */}
+      {showEmojiPicker && (
+        <div 
+          ref={emojiPickerRef}
+          className="absolute bottom-full left-4 mb-2 z-50 shadow-xl border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden animate-in slide-in-from-bottom-2 duration-200"
+        >
+          <EmojiPicker 
+            onEmojiClick={onEmojiClick}
+            autoFocusSearch={false}
+            theme={Theme.AUTO}
+            width={350}
+            height={400}
+            searchPlaceHolder="이모지 검색..."
           />
         </div>
       )}
@@ -200,7 +243,23 @@ export const MessageInput = ({
             type="button"
             variant="ghost"
             size="icon"
-            onClick={() => setShowPollForm(!showPollForm)}
+            onClick={() => {
+              setShowEmojiPicker(!showEmojiPicker);
+              setShowPollForm(false); // 다른 폼 닫기
+            }}
+            disabled={disabled || isUploading}
+            className={`h-9 w-9 ${showEmojiPicker ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" : "text-zinc-500"}`}
+          >
+            <Smile className="w-5 h-5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              setShowPollForm(!showPollForm);
+              setShowEmojiPicker(false); // 다른 폼 닫기
+            }}
             disabled={disabled || isUploading}
             className={`h-9 w-9 ${showPollForm ? "text-blue-600 bg-blue-50 dark:bg-blue-900/20" : "text-zinc-500"}`}
           >
