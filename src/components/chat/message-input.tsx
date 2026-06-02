@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Loader2, X, Image as ImageIcon, BarChart3, Smile } from "lucide-react";
+import { Paperclip, Loader2, X, Image as ImageIcon, BarChart3, Smile, Code } from "lucide-react";
 import { Attachment } from "@/types/socket";
 import { PollForm } from "./poll-form";
 import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
@@ -38,6 +38,29 @@ export const MessageInput = ({
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  const insertCodeBlock = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    
+    const before = content.substring(0, start);
+    const after = content.substring(end);
+    
+    // 선택된 텍스트가 있으면 그것을 감싸고, 없으면 빈 코드 블록 생성
+    const newContent = `${before}\n\`\`\`\n${selectedText}\n\`\`\`\n${after}`;
+    setContent(newContent);
+    
+    // 입력창에 포커스 주고 커서 위치 조정
+    setTimeout(() => {
+      textarea.focus();
+      const newPos = start + 5; // "\n```\n" 이후
+      textarea.setSelectionRange(newPos, newPos + selectedText.length);
+    }, 0);
+  };
 
   // 입력창 높이 자동 조절
   const adjustHeight = () => {
@@ -264,6 +287,17 @@ export const MessageInput = ({
             className={`h-9 w-9 ${showPollForm ? "text-blue-600 bg-blue-50 dark:bg-blue-900/20" : "text-zinc-500"}`}
           >
             <BarChart3 className="w-5 h-5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={insertCodeBlock}
+            disabled={disabled || isUploading}
+            className="text-zinc-500 h-9 w-9"
+            title="코드 블록 삽입"
+          >
+            <Code className="w-5 h-5" />
           </Button>
         </div>
         <textarea

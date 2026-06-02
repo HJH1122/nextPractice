@@ -20,6 +20,7 @@
 - **이력 로드:** 커서 기반 무한 스크롤(Infinite Scroll) 지원 (`/api/messages`).
 - **메시지 검색:** 특정 키워드를 통한 과거 내역 검색 지원 (`/api/messages/search`).
 - **수정 및 삭제:** 본인이 작성한 메시지에 대해 실시간 수정 및 삭제 기능 제공 (Socket.io 브로드캐스트).
+- **코드 블록:** Markdown 문법(```)을 이용한 구문 강조(Syntax Highlighting) 지원 (Java, Python, JS 등).
 - **링크 프리뷰:** 메시지 내 URL 감지 시 `link-preview-js`를 이용한 메타데이터 자동 추출 및 표시.
 - **파일 공유:** 이미지(PNG, JPG), PDF 파일 업로드 및 공유 기능 (`/api/upload`).
 

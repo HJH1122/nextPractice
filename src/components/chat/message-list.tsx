@@ -5,6 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, FileIcon, Download, Image as ImageIcon, Paperclip, Pencil, X as CloseIcon, Check, Trash2 } from "lucide-react";
 import { PollDisplay } from "./poll-display";
 import { Button } from "../ui/button";
+import ReactMarkdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface MessageListProps {
   messages: Message[];
@@ -350,7 +354,63 @@ export const MessageList = ({
                       </div>
                     ) : (
                       <>
-                        {message.content && <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>}
+                        {message.content && (
+                          <div className={`text-sm leading-relaxed break-words ${isMyMessage ? "text-white" : "text-zinc-900 dark:text-zinc-100"}`}>
+                            <ReactMarkdown
+                              remarkPlugins={[remarkBreaks]}
+                              components={{
+                                p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                                code({ node, className, children, ...props }: any) {
+                                  const match = /language-(\w+)/.exec(className || "");
+                                  const content = String(children).replace(/\n$/, "");
+                                  const isInline = !className && !content.includes("\n");
+
+                                  return !isInline ? (
+                                    <div className="my-2 rounded-md overflow-hidden text-xs max-w-full border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                                      <div className="bg-zinc-800 text-zinc-400 px-3 py-1 flex justify-between items-center text-[10px] uppercase font-bold tracking-wider">
+                                        <span>{match ? match[1] : "code"}</span>
+                                        <button 
+                                          onClick={() => navigator.clipboard.writeText(content)}
+                                          className="hover:text-white transition-colors"
+                                          title="복사"
+                                        >
+                                          Copy
+                                        </button>
+                                      </div>
+                                      <SyntaxHighlighter
+                                        style={vscDarkPlus}
+                                        language={match ? match[1] : "javascript"}
+                                        PreTag="div"
+                                        customStyle={{
+                                          margin: 0,
+                                          padding: "1rem",
+                                          fontSize: "0.75rem",
+                                          lineHeight: "1.5",
+                                        }}
+                                        {...props}
+                                      >
+                                        {content}
+                                      </SyntaxHighlighter>
+                                    </div>
+                                  ) : (
+                                    <code className={`${className} bg-black/10 dark:bg-white/10 px-1.5 py-0.5 rounded text-[0.8em] font-mono`} {...props}>
+                                      {children}
+                                    </code>
+                                  );
+                                },
+                                ul: ({ children }) => <ul className="list-disc ml-4 mb-2">{children}</ul>,
+                                ol: ({ children }) => <ol className="list-decimal ml-4 mb-2">{children}</ol>,
+                                a: ({ href, children }) => (
+                                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                    {children}
+                                  </a>
+                                ),
+                              }}
+                            >
+                              {message.content}
+                            </ReactMarkdown>
+                          </div>
+                        )}
                         {isMyMessage && !isSystemMessage && !isBotMessage && (
                           <div className="absolute -left-16 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
