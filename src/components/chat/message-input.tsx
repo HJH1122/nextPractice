@@ -40,25 +40,15 @@ export const MessageInput = ({
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const insertCodeBlock = () => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = content.substring(start, end);
-    
-    const before = content.substring(0, start);
-    const after = content.substring(end);
-    
-    // 선택된 텍스트가 있으면 그것을 감싸고, 없으면 빈 코드 블록 생성
-    const newContent = `${before}\n\`\`\`\n${selectedText}\n\`\`\`\n${after}`;
+    // 메시지 내용을 초기화하고 새로운 코드 블록만 생성
+    const newContent = "\n```\n\n```\n";
     setContent(newContent);
     
     // 입력창에 포커스 주고 커서 위치 조정
     setTimeout(() => {
-      textarea.focus();
-      const newPos = start + 5; // "\n```\n" 이후
-      textarea.setSelectionRange(newPos, newPos + selectedText.length);
+      textareaRef.current?.focus();
+      // 첫 번째 줄 이후(``` 다음)에 커서 위치
+      textareaRef.current?.setSelectionRange(5, 5); 
     }, 0);
   };
 
