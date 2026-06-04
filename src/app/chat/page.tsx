@@ -14,6 +14,7 @@ export default function ChatPage() {
     roomName: "",
     creatorId: "",
     announcement: null as string | null,
+    isLocked: false,
   });
 
   const handleSetName = (name: string) => {
@@ -30,9 +31,15 @@ export default function ChatPage() {
     setStatus("lobby");
   };
 
-  const handleJoinRoom = (roomUsername: string, roomId: string, roomName: string, creatorId?: string, announcement?: string | null) => {
+  const handleJoinRoom = (roomUsername: string, roomId: string, roomName: string, creatorId?: string, announcement?: string | null, isLocked?: boolean) => {
     // roomUsername is kept for compatibility with ChatLobby's onJoinRoom signature
-    setChatInfo({ roomId, roomName, creatorId: creatorId || "", announcement: announcement || null });
+    setChatInfo({ 
+      roomId, 
+      roomName, 
+      creatorId: creatorId || "", 
+      announcement: announcement || null,
+      isLocked: !!isLocked,
+    });
     setStatus("chat");
   };
 
@@ -74,6 +81,7 @@ export default function ChatPage() {
               roomName={chatInfo.roomName}
               creatorId={chatInfo.creatorId}
               initialAnnouncement={chatInfo.announcement}
+              initialIsLocked={chatInfo.isLocked}
               onLeave={handleLeaveRoom}
               onHostTransfer={handleHostTransfer}
             />

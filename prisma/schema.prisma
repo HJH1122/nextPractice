@@ -24,6 +24,7 @@ model Room {
   id           String    @id @default(cuid())
   name         String
   announcement String?   @db.Text
+  isLocked     Boolean   @default(false)
   creatorId    String
   creator      User      @relation("RoomCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   messages     Message[]

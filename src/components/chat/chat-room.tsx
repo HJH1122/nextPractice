@@ -7,7 +7,7 @@ import { MessageList } from "./message-list";
 import { MessageInput } from "./message-input";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Users, Search, X, ChevronUp, ChevronDown, Loader2, ArrowLeft, Trash2, Crown, Megaphone, Bell } from "lucide-react";
+import { Users, Search, X, ChevronUp, ChevronDown, Loader2, ArrowLeft, Trash2, Crown, Megaphone, Bell, Lock, Unlock } from "lucide-react";
 
 interface ChatRoomProps {
   username: string;
@@ -16,11 +16,12 @@ interface ChatRoomProps {
   roomName: string;
   creatorId: string;
   initialAnnouncement?: string | null;
+  initialIsLocked?: boolean;
   onLeave: () => void;
   onHostTransfer?: (newCreatorId: string) => void;
 }
 
-export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initialAnnouncement, onLeave, onHostTransfer }: ChatRoomProps) => {
+export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initialAnnouncement, initialIsLocked, onLeave, onHostTransfer }: ChatRoomProps) => {
   const { socket, isConnected } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -32,6 +33,8 @@ export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initia
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [currentCreatorId, setCurrentCreatorId] = useState(creatorId);
   const [announcement, setAnnouncement] = useState<string | null>(initialAnnouncement || null);
+  const [isLocked, setIsLocked] = useState(initialIsLocked || false);
+  const [isLocking, setIsLocking] = useState(false);
   const [isAnnouncementEditing, setIsAnnouncementEditing] = useState(false);
   const [newAnnouncement, setNewAnnouncement] = useState("");
 
@@ -283,6 +286,12 @@ export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initia
       setAnnouncement(null);
     });
 
+    socket.on("room-lock-status-changed", ({ roomId: targetRoomId, isLocked: targetIsLocked }: { roomId: string, isLocked: boolean }) => {
+      if (targetRoomId === roomId) {
+        setIsLocked(targetIsLocked);
+      }
+    });
+
     socket.emit("join-room", { userId, username, roomId });
 
     return () => {
@@ -297,8 +306,29 @@ export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initia
       socket.off("user-kicked");
       socket.off("announcement-updated");
       socket.off("announcement-deleted");
+      socket.off("room-lock-status-changed");
     };
   }, [socket, roomId, username, userId, onLeave, onHostTransfer]);
+
+  const handleToggleLock = async () => {
+    try {
+      setIsLocking(true);
+      const response = await fetch(`/api/rooms/${roomId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorId: userId, isLocked: !isLocked }),
+      });
+
+      if (!response.ok) throw new Error("잠금 상태 변경 실패");
+      
+      const updatedRoom = await response.json();
+      setIsLocked(updatedRoom.isLocked);
+    } catch (error) {
+      alert("방 잠금 상태 변경에 실패했습니다.");
+    } finally {
+      setIsLocking(false);
+    }
+  };
 
   const onUpdateAnnouncement = useCallback(() => {
     if (!socket || !isConnected) return;
@@ -452,16 +482,34 @@ export const ChatRoom = ({ username, userId, roomId, roomName, creatorId, initia
         {!showSearch && (
           <div className="flex items-center gap-4">
             {userId === currentCreatorId && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleDeleteRoom} 
-                disabled={isDeleting}
-                className="text-zinc-500 hover:text-red-500 flex items-center gap-1.5"
-              >
-                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                <span className="text-xs font-medium">채팅방삭제</span>
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleToggleLock}
+                  disabled={isLocking}
+                  className={`flex items-center gap-1.5 h-8 ${isLocked ? "text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100" : "text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100"}`}
+                >
+                  {isLocking ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : isLocked ? (
+                    <Unlock className="w-3.5 h-3.5" />
+                  ) : (
+                    <Lock className="w-3.5 h-3.5" />
+                  )}
+                  <span className="text-xs font-bold">{isLocked ? "방 잠금 해제" : "방 잠그기"}</span>
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleDeleteRoom} 
+                  disabled={isDeleting}
+                  className="text-zinc-500 hover:text-red-500 flex items-center gap-1.5 h-8"
+                >
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  <span className="text-xs font-medium">채팅방삭제</span>
+                </Button>
+              </div>
             )}
             <Button variant="ghost" size="icon" onClick={() => setShowSearch(true)} className="h-8 w-8 text-zinc-500">
               <Search className="w-5 h-5" />

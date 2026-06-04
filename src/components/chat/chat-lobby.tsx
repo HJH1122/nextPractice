@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, MessageCircle, Loader2, User, LogOut, Crown, RefreshCw, ChevronLeft } from "lucide-react";
+import { Plus, MessageCircle, Loader2, User, LogOut, Crown, RefreshCw, ChevronLeft, Lock } from "lucide-react";
+import { useSocket } from "@/components/providers/socket-provider";
 
 interface Room {
   id: string;
   name: string;
   creatorId: string;
+  isLocked: boolean;
   announcement: string | null;
   createdAt: string;
   participantCount: number;
@@ -16,7 +18,7 @@ interface Room {
 }
 
 interface ChatLobbyProps {
-  onJoinRoom: (username: string, roomId: string, roomName: string, creatorId: string, announcement: string | null) => void;
+  onJoinRoom: (username: string, roomId: string, roomName: string, creatorId: string, announcement: string | null, isLocked: boolean) => void;
   username: string;
   userId: string;
   isNameSet: boolean;
@@ -25,6 +27,7 @@ interface ChatLobbyProps {
 }
 
 export const ChatLobby = ({ onJoinRoom, username, userId, isNameSet, onSetName, onLogout }: ChatLobbyProps) => {
+  const { socket } = useSocket();
   const [localUsername, setLocalUsername] = useState(username);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +64,20 @@ export const ChatLobby = ({ onJoinRoom, username, userId, isNameSet, onSetName, 
     }
   }, [isNameSet]);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("room-lock-status-changed", ({ roomId, isLocked }: { roomId: string, isLocked: boolean }) => {
+      setRooms((prev) => 
+        prev.map((room) => room.id === roomId ? { ...room, isLocked } : room)
+      );
+    });
+
+    return () => {
+      socket.off("room-lock-status-changed");
+    };
+  }, [socket]);
+
   const handleSetName = (e: React.FormEvent) => {
     e.preventDefault();
     if (localUsername.trim()) {
@@ -86,7 +103,7 @@ export const ChatLobby = ({ onJoinRoom, username, userId, isNameSet, onSetName, 
       if (response.ok) {
         const newRoom = await response.json();
         setNewRoomName(""); // Clear input on success
-        onJoinRoom(username, newRoom.id, newRoom.name, newRoom.creatorId, newRoom.announcement);
+        onJoinRoom(username, newRoom.id, newRoom.name, newRoom.creatorId, newRoom.announcement, newRoom.isLocked);
       }
     } catch (error) {
       console.error("Failed to create room:", error);
@@ -214,16 +231,39 @@ export const ChatLobby = ({ onJoinRoom, username, userId, isNameSet, onSetName, 
               rooms.map((room) => (
                 <div 
                   key={room.id}
-                  onClick={() => onJoinRoom(username, room.id, room.name, room.creatorId, room.announcement)}
+                  onClick={() => {
+                    if (room.isLocked && room.creatorId !== userId) {
+                      alert("이 방은 현재 잠겨 있어 입장할 수 없습니다.");
+                      return;
+                    }
+                    onJoinRoom(username, room.id, room.name, room.creatorId, room.announcement, room.isLocked);
+                  }}
                   className="relative group"
                 >
-                  <div className="flex items-center justify-between p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 cursor-pointer transition-all">
+                  <div className={`flex items-center justify-between p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg transition-all ${
+                    room.isLocked && room.creatorId !== userId 
+                      ? "opacity-60 grayscale-[0.5] cursor-not-allowed bg-zinc-50 dark:bg-zinc-900/50" 
+                      : "hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 cursor-pointer"
+                  }`}>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30">
-                        <MessageCircle className="w-5 h-5 text-zinc-500 group-hover:text-blue-600" />
+                      <div className={`w-10 h-10 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center ${
+                        !room.isLocked || room.creatorId === userId ? "group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30" : ""
+                      }`}>
+                        {room.isLocked ? (
+                          <Lock className={`w-5 h-5 ${room.creatorId === userId ? "text-blue-600" : "text-zinc-400"}`} />
+                        ) : (
+                          <MessageCircle className="w-5 h-5 text-zinc-500 group-hover:text-blue-600" />
+                        )}
                       </div>
                       <div>
-                        <p className="font-medium">{room.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{room.name}</p>
+                          {room.isLocked && (
+                            <span className="bg-zinc-100 dark:bg-zinc-800 text-[10px] px-1.5 py-0.5 rounded text-zinc-500 font-bold flex items-center gap-1">
+                              <Lock className="w-2.5 h-2.5" /> 잠김
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center text-xs text-zinc-500 gap-2">
                           <p>{new Date(room.createdAt).toLocaleDateString()} 생성</p>
                           <span className="flex items-center gap-1">
@@ -232,8 +272,16 @@ export const ChatLobby = ({ onJoinRoom, username, userId, isNameSet, onSetName, 
                         </div>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      입장하기
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className={`transition-opacity ${
+                        room.isLocked && room.creatorId !== userId 
+                          ? "opacity-50 pointer-events-none" 
+                          : "opacity-0 group-hover:opacity-100"
+                      }`}
+                    >
+                      {room.isLocked && room.creatorId !== userId ? "입장 불가" : "입장하기"}
                     </Button>
                   </div>
 
