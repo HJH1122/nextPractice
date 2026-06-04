@@ -114,7 +114,7 @@ export const ChatLobby = ({ onJoinRoom, username, userId, isNameSet, onSetName, 
               autoFocus
             />
             <Button type="submit" className="w-full" disabled={!localUsername.trim()}>
-              들어가기
+              시작하기
             </Button>
           </form>
         </div>
