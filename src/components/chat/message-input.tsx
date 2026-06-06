@@ -35,9 +35,64 @@ export const MessageInput = ({
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showPollForm, setShowPollForm] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showCommandMenu, setShowCommandMenu] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+  const COMMANDS = [
+    {
+      id: "help",
+      command: "/도움말",
+      description: "사용 가능한 명령어 및 도움말 확인",
+      icon: Smile,
+    },
+    {
+      id: "poll",
+      command: "/투표",
+      description: "새로운 설문조사 생성",
+      icon: BarChart3,
+    },
+    {
+      id: "code",
+      command: "/코드",
+      description: "코드 블록(Markdown) 삽입",
+      icon: Code,
+    },
+    {
+      id: "clear",
+      command: "/지우기",
+      description: "입력창 내용 모두 삭제",
+      icon: X,
+    },
+  ];
+
+  const filteredCommands = COMMANDS.filter(cmd => 
+    cmd.command.toLowerCase().startsWith(content.toLowerCase())
+  );
+
+  const selectCommand = (command: (typeof COMMANDS)[0]) => {
+    switch (command.id) {
+      case "help":
+        setContent("/도움말 ");
+        break;
+      case "poll":
+        setContent("");
+        setShowPollForm(true);
+        break;
+      case "code":
+        setContent("");
+        insertCodeBlock();
+        break;
+      case "clear":
+        setContent("");
+        break;
+    }
+    setShowCommandMenu(false);
+    setSelectedIndex(0);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
 
   const insertCodeBlock = () => {
     // 메시지 내용을 초기화하고 새로운 코드 블록만 생성
@@ -84,7 +139,16 @@ export const MessageInput = ({
   }, [showEmojiPicker]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+    const value = e.target.value;
+    setContent(value);
+
+    // 슬래시 명령어 메뉴 표시 여부 결정
+    if (value.startsWith("/") && !value.includes(" ")) {
+      setShowCommandMenu(true);
+      setSelectedIndex(0);
+    } else {
+      setShowCommandMenu(false);
+    }
 
     // 타이핑 시작 이벤트 처리
     if (!isTyping && e.target.value.trim().length > 0) {
@@ -107,6 +171,29 @@ export const MessageInput = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showCommandMenu && filteredCommands.length > 0) {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : filteredCommands.length - 1));
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev < filteredCommands.length - 1 ? prev + 1 : 0));
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        selectCommand(filteredCommands[selectedIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowCommandMenu(false);
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e as any);
@@ -173,6 +260,38 @@ export const MessageInput = ({
     <div 
       className="flex flex-col border-t border-zinc-200 dark:border-zinc-800 transition-colors relative"
     >
+      {/* 슬래시 명령어 메뉴 */}
+      {showCommandMenu && filteredCommands.length > 0 && (
+        <div className="absolute bottom-full left-4 mb-2 z-50 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-xl overflow-hidden animate-in slide-in-from-bottom-2 duration-200">
+          <div className="p-2 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">명령어</p>
+          </div>
+          <div className="max-h-60 overflow-y-auto">
+            {filteredCommands.map((cmd, index) => (
+              <button
+                key={cmd.id}
+                type="button"
+                onClick={() => selectCommand(cmd)}
+                onMouseEnter={() => setSelectedIndex(index)}
+                className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                  index === selectedIndex 
+                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400" 
+                    : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300"
+                }`}
+              >
+                <div className={`p-1.5 rounded-md ${index === selectedIndex ? "bg-blue-100 dark:bg-blue-800/40" : "bg-zinc-100 dark:bg-zinc-800"}`}>
+                  <cmd.icon className="w-4 h-4" />
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-sm font-bold truncate">{cmd.command}</p>
+                  <p className="text-[11px] text-zinc-500 truncate">{cmd.description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 설문조사 작성 폼 팝업 */}
       {showPollForm && (
         <div className="absolute bottom-full left-4 mb-2 z-50 animate-in slide-in-from-bottom-2 duration-200">
