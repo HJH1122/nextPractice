@@ -241,7 +241,11 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
         // 챗봇 응답
         if (message.content.trim() === "/도움말") {
           setTimeout(async () => {
-            const botContent = "무엇을 도와드릴까요? /도움말, /투표 명령어를 지원합니다.";
+            const botContent = `**[사용 가능한 명령어]**
+- \`/도움말\`: 사용 가능한 모든 명령어 목록을 확인합니다.
+- \`/투표\`: 새로운 설문조사를 생성할 수 있는 양식을 띄웁니다.
+- \`/코드\`: 마크다운 코드 블록을 입력창에 자동으로 삽입합니다.
+- \`/지우기\`: 현재 입력창에 작성 중인 내용을 모두 지웁니다.`;
             io.to(message.roomId).emit("receive-message", {
               id: `bot-${Date.now()}`,
               content: botContent,
