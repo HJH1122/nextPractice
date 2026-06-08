@@ -239,15 +239,38 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseServerIo) => {
         io.to(message.roomId).emit("receive-message", broadcastMessage);
 
         // 챗봇 응답
-        if (message.content.trim() === "/도움말") {
+        const trimmedContent = message.content.trim();
+        
+        if (trimmedContent === "/도움말") {
           setTimeout(async () => {
             const botContent = `**[사용 가능한 명령어]**
 - \`/도움말\`: 사용 가능한 모든 명령어 목록을 확인합니다.
+- \`/방장\`: 현재 방의 방장 정보를 확인합니다.
 - \`/투표\`: 새로운 설문조사를 생성할 수 있는 양식을 띄웁니다.
 - \`/코드\`: 마크다운 코드 블록을 입력창에 자동으로 삽입합니다.
 - \`/지우기\`: 현재 입력창에 작성 중인 내용을 모두 지웁니다.`;
             io.to(message.roomId).emit("receive-message", {
-              id: `bot-${Date.now()}`,
+              id: `bot-help-${Date.now()}`,
+              content: botContent,
+              senderId: "bot-helper",
+              roomId: message.roomId,
+              timestamp: new Date().toISOString(),
+              type: "BOT",
+              user: { name: "도움말 봇" }
+            });
+          }, 500);
+        } else if (trimmedContent === "/방장") {
+          setTimeout(async () => {
+            const room = await db.room.findUnique({
+              where: { id: message.roomId },
+              include: { creator: { select: { name: true } } }
+            });
+
+            const creatorName = room?.creator?.name || "알 수 없음";
+            const botContent = `이 방의 방장은 **${creatorName}**님입니다.`;
+            
+            io.to(message.roomId).emit("receive-message", {
+              id: `bot-host-${Date.now()}`,
               content: botContent,
               senderId: "bot-helper",
               roomId: message.roomId,
