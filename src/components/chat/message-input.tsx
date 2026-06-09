@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, Loader2, X, Image as ImageIcon, BarChart3, Smile, Code } from "lucide-react";
+import { Paperclip, Loader2, X, Image as ImageIcon, BarChart3, Smile, Code, Crown } from "lucide-react";
 import { Attachment } from "@/types/socket";
 import { PollForm } from "./poll-form";
 import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
@@ -49,6 +49,12 @@ export const MessageInput = ({
       icon: Smile,
     },
     {
+      id: "host",
+      command: "/방장",
+      description: "현재 방의 방장 정보 확인",
+      icon: Crown,
+    },
+    {
       id: "poll",
       command: "/투표",
       description: "새로운 설문조사 생성",
@@ -76,6 +82,9 @@ export const MessageInput = ({
     switch (command.id) {
       case "help":
         setContent("/도움말 ");
+        break;
+      case "host":
+        setContent("/방장 ");
         break;
       case "poll":
         setContent("");
