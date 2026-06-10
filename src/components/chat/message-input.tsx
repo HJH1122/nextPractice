@@ -66,12 +66,6 @@ export const MessageInput = ({
       description: "코드 블록(Markdown) 삽입",
       icon: Code,
     },
-    {
-      id: "clear",
-      command: "/지우기",
-      description: "입력창 내용 모두 삭제",
-      icon: X,
-    },
   ];
 
   const filteredCommands = COMMANDS.filter(cmd => 
@@ -93,9 +87,6 @@ export const MessageInput = ({
       case "code":
         setContent("");
         insertCodeBlock();
-        break;
-      case "clear":
-        setContent("");
         break;
     }
     setShowCommandMenu(false);
