@@ -222,10 +222,7 @@ export const ChatLobby = ({ onJoinRoom, username, userId, isNameSet, onSetName, 
             ) : rooms.length === 0 ? (
               <div className="text-center py-10 border-2 border-dashed rounded-lg border-zinc-100 dark:border-zinc-800">
                 <p className="text-sm text-zinc-500">생성된 방이 없습니다.</p>
-                <Button variant="link" onClick={() => {
-                  setNewRoomName("");
-                  setView("create");
-                }}>첫 번째 방을 만들어보세요!</Button>
+                <p className="text-xs text-zinc-400 mt-1">첫 번째 방을 만들어보세요!</p>
               </div>
             ) : (
               rooms.map((room) => (
